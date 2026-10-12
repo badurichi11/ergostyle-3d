@@ -50,7 +50,7 @@ button{font:inherit;color:inherit}
 input[type=range]{width:100%;accent-color:var(--accent)}
 .sheet{position:absolute;left:12px;top:62px;width:min(196px,calc(100% - 92px));z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);max-height:calc(100% - 140px);overflow:auto}
 #sheetBody{padding:9px 34px 10px 11px;display:grid;gap:6px}
-.sheet.mini #sheetBody>*:not(.ptitle):not(.dims){display:none}
+.sheet.mini #sheetBody>*:not(.ptitle):not(.dims):not(.crumb:first-child){display:none}
 .sheet.mini{max-height:none}
 #sheetMin{position:absolute;top:4px;right:4px;width:28px;height:28px;border:0;background:none;border-radius:7px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center}
 #sheetMin:hover{background:var(--bg)}
@@ -285,8 +285,8 @@ var B3D = (function () {
     function val(t, n) {
       switch (t) {
         case 0: return obj(n);
-        case 1: return !!r[p++];
-        case 2: return null;
+        case 1: return !!n;
+        case 2: case 8: return null;
         case 3: return r[p++];
         case 4: p += 4; return dv.getInt32(p - 4, true);
         case 5: p += 8; return dv.getFloat64(p - 8, true);
@@ -326,7 +326,7 @@ var B3D = (function () {
     for (var i = 0; i < n && p < b.length; i++) {
       var t = b[p++];
       if (t === 0x10) segs.push({ t: 'L', x1: d(), y1: d(), x2: d(), y2: d() });
-      else if (t === 0x12) { var s = { t: 'A', x1: d(), y1: d(), x2: d(), y2: d(), cx: d(), cy: d() }; s.cw = b[p++] === 0; segs.push(s); }
+      else if (t === 0x12) { var s = { t: 'A', cx: d(), cy: d(), x1: d(), y1: d(), x2: d(), y2: d() }; s.cw = b[p++] === 0; segs.push(s); }
       else if (t === 0x11 || t === 0x14) segs.push({ t: 'C', cx: d(), cy: d(), r: d() });
       else break;
     }
@@ -406,24 +406,26 @@ function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage
 var EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 
 /* ---------- naming ---------- */
-var RU = { 'фронтальная': 'ფრონტალური პანელი', 'горизонтальная': 'ჰორიზონტალური პანელი', 'вертикальная': 'ვერტიკალური პანელი', 'профиль': 'პროფილი', 'гнутая': 'მოხრილი დეტალი', 'ящик': 'უჯრა', 'новая модель': 'მოდელი' };
+var RU = { 'фронтальная': 'ფრონტალური პანელი', 'горизонтальная': 'ჰორიზონტალური პანელი', 'вертикальная': 'ვერტიკალური პანელი', 'профиль': 'პროფილი', 'гнутая': 'მოხრილი დეტალი', 'вращение': 'სახელური (ბრუნვის სხეული)', 'панель': 'პანელი', 'ящик': 'უჯრა', 'новая модель': 'მოდელი' };
 function niceName(n) {
   var s = (n.name || '').trim(), k = s.toLowerCase().replace(/[0-9]+$/, '').trim();
   if (RU[k]) return RU[k];
   return s || (n.type === 3001 ? 'ფურნიტურა' : 'დეტალი');
 }
 function isRoom(n) { return /კედელ|იატაკ|ჭერი|стена|пол$/i.test(n.mat); }
-function isGlass(n) { return /მინა|стекл/i.test(n.mat); }
+function isGlass(n) { return GLASS.test(n.mat); }
 
 /* ---------- colors ---------- */
+var GLASS = /(^|[^ა-ჰ])მინა|стекл/i;
 var MAT_RULES = [
   [/კედელ/i, '#c9cdd2'], [/იატაკ/i, '#a7a39d'],
-  [/მინა|стекл/i, '#bfe3ef'],
+  [GLASS, '#bfe3ef'],
+  [/Золот|ოქრო|gold/i, '#c9a13b'], [/Латун|ბრინჯაო/i, '#b8954a'],
   [/Черн|შავ/i, '#2a2a2a'],
   [/Нерж|Хром|ნიკელ|მეტალ|მილ|სალასკა|IT0|Направля|runner/i, '#a9b0b7'],
   [/K\s*003|მუხ|дуб|oak/i, '#c79e72'],
   [/ცალმხრივ|ორმხრივ/i, '#f3e6d6'],
-  [/უსახო/i, '#bfa27a'],
+  [/უსახო/i, '#efebe5'],
   [/ხე|ფიჭვ|сосн/i, '#d4a96a'],
   [/კალაკატა|neolit|stone|ქვა/i, '#ebe8e1'],
   [/პლინტუს|plint/i, '#5b5f63'],
@@ -479,15 +481,38 @@ function tess(s, out) {
   for (var i = 0; i <= n; i++) { var a = a1 + (a2 - a1) * i / n; out.push([s.cx + r * Math.cos(a), s.cy + r * Math.sin(a)]); }
 }
 function loops(segs) {
-  var L = [], cur = null, last = null;
+  // turn every segment into a polyline, then chain them end-to-end (either direction) into loops
+  var L = [], pool = [], TOL = 1.5;
   segs.forEach(function (s) {
-    if (s.t === 'C') { var c = []; for (var i = 0; i < 40; i++) { var a = i / 40 * Math.PI * 2; c.push([s.cx + s.r * Math.cos(a), s.cy + s.r * Math.sin(a)]); } L.push({ pts: c, closed: true }); cur = null; return; }
-    if (!cur || !last || Math.hypot(s.x1 - last[0], s.y1 - last[1]) > 0.5) { cur = { pts: [], closed: false }; L.push(cur); }
-    var tmp = []; tess(s, tmp);
-    tmp.forEach(function (p) { var q = cur.pts[cur.pts.length - 1]; if (!q || Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-6) cur.pts.push(p); });
-    last = [s.x2, s.y2];
+    if (s.t === 'C') { var c = []; for (var i = 0; i < 40; i++) { var a = i / 40 * Math.PI * 2; c.push([s.cx + s.r * Math.cos(a), s.cy + s.r * Math.sin(a)]); } L.push({ pts: c, closed: true }); return; }
+    var t = []; tess(s, t); if (t.length >= 2) pool.push(t);
   });
-  L.forEach(function (l) { if (!l.closed && l.pts.length > 2) { var a = l.pts[0], b = l.pts[l.pts.length - 1]; if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.5) { l.pts.pop(); l.closed = true; } } });
+  function d(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
+  function add(cur, seg, atEnd) {
+    seg.forEach(function (p) {
+      if (atEnd) { var q = cur[cur.length - 1]; if (!q || d(p, q) > 1e-6) cur.push(p); }
+      else { var q2 = cur[0]; if (!q2 || d(p, q2) > 1e-6) cur.unshift(p); }
+    });
+  }
+  while (pool.length) {
+    var cur = pool.shift().slice(), grew = true;
+    while (pool.length && d(cur[0], cur[cur.length - 1]) > TOL && grew) {
+      grew = false;
+      var e = cur[cur.length - 1], b = cur[0];
+      for (var i = 0; i < pool.length; i++) {
+        var sg = pool[i], s0 = sg[0], s1 = sg[sg.length - 1];
+        if (d(e, s0) <= TOL) { add(cur, sg, true); }
+        else if (d(e, s1) <= TOL) { add(cur, sg.slice().reverse(), true); }
+        else if (d(b, s1) <= TOL) { add(cur, sg.slice().reverse(), false); }
+        else if (d(b, s0) <= TOL) { add(cur, sg, false); }
+        else continue;
+        pool.splice(i, 1); grew = true; break;
+      }
+    }
+    var closed = cur.length > 2 && d(cur[0], cur[cur.length - 1]) <= TOL;
+    if (closed) cur.pop();
+    L.push({ pts: cur, closed: closed });
+  }
   return L;
 }
 function area(p) { var s = 0; for (var i = 0; i < p.length; i++) { var a = p[i], b = p[(i + 1) % p.length]; s += a[0] * b[1] - b[0] * a[1]; } return s / 2; }
@@ -537,8 +562,8 @@ function dimsOf(n) {
   loops(n.segs).forEach(function (l) { l.pts.forEach(function (p) { xs.push(p[0]); ys.push(p[1]); }); });
   if (!xs.length) return null;
   var w = Math.max.apply(null, xs) - Math.min.apply(null, xs), h = Math.max.apply(null, ys) - Math.min.apply(null, ys);
-  var t = n.type === 4002 ? n.thick : (n.length || 0);
-  if (n.type === 999) { return [Math.round(Math.max(w, h)), Math.round(t), n.matThick || 0].sort(function (a, b) { return b - a; }); }
+  var t = Math.abs(n.type === 4002 ? n.thick : (n.length || 0));
+  if (n.type === 2002) return null;
   return [Math.round(w), Math.round(h), +(t || 0).toFixed(1)].sort(function (a, b) { return b - a; });
 }
 function num(v) { return String(+(+v).toFixed(1)); }
@@ -563,13 +588,20 @@ function build(nodes) {
     var parentObj = n.parent ? objFor[n.parent.idx] : root;
     if (!parentObj) parentObj = root;
     if (n.type === 1001 || n.type === 9000) return;
+    if (n.type === 6000) return;
     if (n.type === 1005 || n.type === 4001 || n.type === 4004 || n.children.length) {
       var g = new THREE.Group(); setTrans(g, n.trans); parentObj.add(g); objFor[n.idx] = g; n.obj = g;
-      if (n.type !== 4002 && n.type !== 2004 && n.type !== 999) return;
+      if (n.type !== 4002 && n.type !== 2004 && n.type !== 999 && n.type !== 2002) return;
     }
     var geo = null;
     if (n.type === 3001) {
       geo = new THREE.SphereGeometry(10, 12, 8);
+    } else if (n.type === 2002) {
+      var lp = loops(n.segs).sort(function (a, b) { return b.pts.length - a.pts.length; })[0];
+      if (!lp || lp.pts.length < 2) return;
+      var prof = lp.pts.map(function (q) { return new THREE.Vector2(Math.abs(q[0]), q[1]); });
+      if (lp.closed) prof.push(prof[0].clone());
+      geo = new THREE.LatheGeometry(prof, 32);
     } else if (n.segs.length) {
       var shapes = buildShapes(n);
       var depth = n.type === 4002 ? n.thick : n.length;
@@ -889,7 +921,7 @@ function renderSheet() {
   var bands = {}, nb = 0;
   n.butts.forEach(function (b) { if (b.mat) { bands[b.mat] = (bands[b.mat] || 0) + 1; nb++; } });
   var bandTxt = Object.keys(bands).map(function (k) { return esc(k) + ' — ' + bands[k] + ' მხარე'; }).join('<br>');
-  var kind = n.type === 2004 ? 'პროფილი' : n.type === 999 ? 'მოხრილი დეტალი' : n.type === 3001 ? 'ფურნიტურა' : 'პანელი';
+  var kind = n.type === 2002 ? 'ბრუნვის სხეული' : n.type === 2004 ? 'პროფილი' : n.type === 999 ? 'მოხრილი დეტალი' : n.type === 3001 ? 'ფურნიტურა' : 'პანელი';
   el.innerHTML =
     '<div class="ptitle"><span class="sw" style="background:' + baseColor(n) + '"></span><h2>' + esc(niceName(n)) + '</h2></div>' +
     (path.length ? '<div class="crumb">' + path.map(function (p, i) { return i === path.length - 1 ? '<b>' + p + '</b>' : p; }).join(' › ') + '</div>' : '') +
