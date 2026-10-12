@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- cabinet in isometric view -->
+    <path android:fillColor="#FFFFFF" android:pathData="M54,30 L76,42 L54,54 L32,42 Z"/>
+    <path android:fillColor="#FBE5D8" android:pathData="M32,42 L54,54 L54,80 L32,68 Z"/>
+    <path android:fillColor="#F3C9AE" android:pathData="M54,54 L76,42 L76,68 L54,80 Z"/>
+    <path android:strokeColor="#7A2807" android:strokeWidth="1.6" android:fillColor="#00000000"
+        android:pathData="M32,55 L54,67 M54,67 L76,55 M43,48 L43,74 M65,48 L65,74"/>
+</vector>
