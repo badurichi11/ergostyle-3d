@@ -714,7 +714,13 @@ var VIEWS = {
   front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0],
   top: [0, 1, 0.0001], bottom: [0, -1, 0.0001], iso: [0.55, 0.42, 1], iso2: [-0.55, 0.42, -1]
 };
+var projPref = 'persp';
+function useProj(p) {
+  if ((p === 'ortho') !== (camera === ortho)) setProj(p);
+  $('pViews').querySelectorAll('[data-proj]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.proj === p); });
+}
 function setView(v, instant) {
+  useProj(v === 'iso' || v === 'iso2' ? projPref : 'ortho');
   var c = S.center.clone(), dir = new THREE.Vector3().fromArray(VIEWS[v] || VIEWS.iso).normalize();
   var fh = 2 * Math.atan(halfFov() * aspect), fv = FOV * Math.PI / 180;
   var r = S.radius / Math.sin(Math.min(fv, fh) / 2) * 1.05 + 100;
@@ -831,32 +837,56 @@ function snapPoint(hit, sx, sy, rect) {
   }
   return best;
 }
+var mFaceMat = new THREE.MeshBasicMaterial({ color: 0xc2410c, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+function faceOverlay(obj, n, pt) {
+  // highlight every triangle of the tapped part that lies in the same plane as the tapped face
+  var g = obj.geometry, pos = g.attributes.position, idx = g.index, cnt = idx ? idx.count : pos.count, out = [];
+  var a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), tn = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+  var plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, pt);
+  obj.updateMatrixWorld();
+  for (var i = 0; i < cnt; i += 3) {
+    var i0 = idx ? idx.getX(i) : i, i1 = idx ? idx.getX(i + 1) : i + 1, i2 = idx ? idx.getX(i + 2) : i + 2;
+    a.fromBufferAttribute(pos, i0).applyMatrix4(obj.matrixWorld); b.fromBufferAttribute(pos, i1).applyMatrix4(obj.matrixWorld); c.fromBufferAttribute(pos, i2).applyMatrix4(obj.matrixWorld);
+    tn.crossVectors(e1.subVectors(b, a), e2.subVectors(c, a));
+    if (tn.lengthSq() < 1e-9) continue;
+    tn.normalize();
+    if (Math.abs(tn.dot(n)) < 0.999) continue;
+    if (Math.abs(plane.distanceToPoint(a)) > 0.3 || Math.abs(plane.distanceToPoint(b)) > 0.3 || Math.abs(plane.distanceToPoint(c)) > 0.3) continue;
+    out.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+  }
+  var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
+  var m = new THREE.Mesh(geo, mFaceMat); m.renderOrder = 9; mGroup.add(m); return m;
+}
 function measureTap(p) {
-  var h = p.hit, pt, nrm = null;
+  var h = p.hit, pt, nrm = null, objs = [];
   if (M.mode === 'face') {
     pt = h.point.clone();
     nrm = h.face.normal.clone().transformDirection(h.object.matrixWorld).normalize();
+    objs.push(faceOverlay(h.object, nrm, pt));
   } else pt = snapPoint(h, p.sx, p.sy, p.rect);
-  if (!M.pend) { M.pend = { p: pt, n: nrm, dot: dot(pt) }; needs = true; renderMeasureSheet(); return; }
-  var a = M.pend.p, item = { mode: M.mode, objs: [M.pend.dot] };
-  if (M.mode === 'face') {
+  objs.push(dot(pt));
+  if (!M.pend) { M.pend = { p: pt, n: nrm, objs: objs }; needs = true; renderMeasureSheet(); return; }
+  var a = M.pend.p, item = { mode: M.mode, objs: M.pend.objs.concat(objs) };
+  if (M.mode === 'face' && Math.abs(M.pend.n.dot(nrm)) >= 0.999) {
+    // parallel surfaces: perpendicular distance between the two planes
     var n1 = M.pend.n, d = pt.clone().sub(a).dot(n1), foot = pt.clone().sub(n1.clone().multiplyScalar(d));
-    item.a = foot; item.b = pt; item.dist = Math.abs(d);
-    item.parallel = Math.abs(n1.dot(nrm)) > 0.985;
-    var guide = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, foot]), mLineMat2); guide.computeLineDistances(); guide.renderOrder = 10; mGroup.add(guide); item.objs.push(guide);
-  } else { item.a = a; item.b = pt; item.dist = a.distanceTo(pt); }
-  item.objs.push(dot(pt));
+    item.a = foot; item.b = pt; item.dist = Math.abs(d); item.parallel = true;
+  } else {
+    item.a = a; item.b = pt; item.dist = a.distanceTo(pt);
+    if (M.mode === 'face') { item.parallel = false; item.mode = 'pt'; item.notParallel = true; }
+  }
   var ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints([item.a, item.b]), mLineMat); ln.renderOrder = 10; mGroup.add(ln); item.objs.push(ln);
   var lab = document.createElement('div'); lab.className = 'mlabel'; lab.textContent = Math.round(item.dist) + ' მმ'; $('labels').appendChild(lab); item.label = lab;
   M.list.push(item); M.pend = null; needs = true; renderMeasureSheet();
 }
+function dropPend() { if (M.pend) { M.pend.objs.forEach(function (o) { mGroup.remove(o); if (o.geometry) o.geometry.dispose(); }); M.pend = null; needs = true; } }
 function removeMeasure(item) {
   item.objs.forEach(function (o) { mGroup.remove(o); if (o.geometry) o.geometry.dispose(); });
   if (item.label) item.label.remove();
 }
 function clearMeasure() {
   M.list.forEach(removeMeasure); M.list = [];
-  if (M.pend) { mGroup.remove(M.pend.dot); M.pend = null; }
+  dropPend();
   needs = true;
 }
 function placeLabels() {
@@ -874,13 +904,13 @@ function renderMeasureSheet() {
     '<div class="seg"><button class="btn" id="mPt" aria-pressed="' + (M.mode === 'pt') + '">წერტილიდან წერტილამდე</button><button class="btn" id="mFace" aria-pressed="' + (M.mode === 'face') + '">ზედაპირებს შორის</button></div>';
   if (M.pend) h += '<div class="hint">ახლა შეეხე ' + (M.mode === 'face' ? 'მეორე ზედაპირს.' : 'მეორე წერტილს.') + '</div>';
   else if (!last) h += '<div class="hint">' + (M.mode === 'face'
-      ? 'შეეხე ერთ ზედაპირს, მერე მეორეს. მაგალითად, ქვედა თაროს ზედა მხარეს და ზედა თაროს ქვედა მხარეს: მიიღებ მათ შორის სუფთა მანძილს.'
+      ? 'შეეხე ერთ ზედაპირს, მერე მეორეს. არჩეული ზედაპირი გაფერადდება. თუ პარალელურია, აპი მათ შორის სუფთა მანძილს ზომავს. თაროს ქვედა მხარის ასარჩევად მოდელი ქვემოდან დაატრიალე.'
       : 'შეეხე ორ წერტილს. კუთხესთან ახლოს შეხებისას წერტილი თვითონ მიება კუთხეს.') + '</div>';
   if (last) {
     var a = last.a, b = last.b;
-    h += '<div class="dims">' + Math.round(last.dist) + '<small>მმ' + (last.mode === 'face' ? ', ზედაპირებს შორის' : ', პირდაპირი მანძილი') + '</small></div>';
+    h += '<div class="dims">' + Math.round(last.dist) + '<small>მმ' + (last.parallel ? ', ზედაპირებს შორის' : ', წერტილებს შორის') + '</small></div>';
     if (last.mode === 'pt') h += '<div class="mgrid"><span><b>სიგანე</b>' + Math.round(Math.abs(a.x - b.x)) + '</span><span><b>სიმაღლე</b>' + Math.round(Math.abs(a.y - b.y)) + '</span><span><b>სიღრმე</b>' + Math.round(Math.abs(a.z - b.z)) + '</span></div>';
-    else if (!last.parallel) h += '<div class="hint" style="font-size:12.5px">ზედაპირები პარალელური არ არის. ნაჩვენებია მანძილი პირველი ზედაპირიდან.</div>';
+    if (last.notParallel) h += '<div class="hint" style="font-size:12px">ზედაპირები პარალელური არ არის, ამიტომ ნაჩვენებია მანძილი ორ წერტილს შორის.</div>';
     if (M.list.length > 1) h += '<div class="crumb">ეკრანზეა ' + M.list.length + ' გაზომვა</div>';
   }
   h += '<div class="acts">' + (M.list.length ? '<button class="btn" id="mUndo">ბოლოს წაშლა</button><button class="btn" id="mClear">ყველას წაშლა</button>' : '') + '<button class="btn primary" id="mExit">დასრულება</button></div>';
@@ -891,7 +921,7 @@ function renderMeasureSheet() {
   if ($('mClear')) $('mClear').onclick = function () { clearMeasure(); renderMeasureSheet(); };
   $('mExit').onclick = function () { setMeasure(false); };
 }
-function setMMode(m) { M.mode = m; if (M.pend) { mGroup.remove(M.pend.dot); M.pend = null; needs = true; } updateModeTag(); renderMeasureSheet(); }
+function setMMode(m) { M.mode = m; dropPend(); updateModeTag(); renderMeasureSheet(); }
 function setMeasure(on) {
   if (on && S.multi) setMulti(false);
   M.on = on; $('bMeasure').setAttribute('aria-pressed', on);
@@ -1092,7 +1122,7 @@ $('bRoom').onclick = function () { S.showRoom = !S.showRoom; this.setAttribute('
 function press(sel, el) { $('pViews').querySelectorAll(sel).forEach(function (b) { b.setAttribute('aria-pressed', b === el); }); }
 $('pViews').addEventListener('click', function (e) {
   var v = e.target.closest('[data-view]'); if (v) setView(v.dataset.view);
-  var p = e.target.closest('[data-proj]'); if (p) { press('[data-proj]', p); setProj(p.dataset.proj); }
+  var p = e.target.closest('[data-proj]'); if (p) { projPref = p.dataset.proj; useProj(projPref); }
   var d = e.target.closest('[data-disp]'); if (d) { press('[data-disp]', d); S.display = d.dataset.disp; applyLook(); }
   var c = e.target.closest('[data-color]');
   if (c) { press('[data-color]', c); S.colorMode = c.dataset.color; applyLook(); renderList(); renderSheet(); }
