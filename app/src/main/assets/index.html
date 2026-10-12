@@ -156,6 +156,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <button class="btn" id="bViews" aria-label="ხედი, რეჟიმი, კვეთა" title="ხედი, რეჟიმი, კვეთა"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
     <button class="btn" id="bMeasure" aria-pressed="false" aria-label="გაზომვა" title="გაზომვა"><svg viewBox="0 0 24 24"><path d="M3 17L17 3l4 4L7 21z M7 13l2 2M10 10l2 2M13 7l2 2"/></svg></button>
     <button class="btn" id="bExplode" aria-label="დაშლა" title="დაშლილი ხედი"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+    <button class="btn" id="bSize" aria-pressed="false" aria-label="საერთო გაბარიტი" title="საერთო გაბარიტი"><svg viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12" rx="1"/><path d="M5 3.5h14M5 2v3M19 2v3M21.5 7v12M20 7h3M20 19h3"/></svg></button>
     <button class="btn" id="bRoom" aria-pressed="true" aria-label="კედლები" title="კედლები და იატაკი"><svg viewBox="0 0 24 24"><path d="M4 20V6l8-3 8 3v14M4 20h16M9 20v-6h6v6"/></svg></button>
   </div>
 
@@ -932,15 +933,16 @@ function setMeasure(on) {
 
 /* ---------- sheet ---------- */
 function blockBtn(n) { return n.parent ? '<button class="btn" id="aBlock">მთელი ბლოკის მონიშვნა</button>' : ''; }
+var showSize = false;
 function renderSheet() {
   var el = $('sheetBody');
+  $('sheet').hidden = false;
   if (M.on) { renderMeasureSheet(); return; }
   if (S.chosen.length > 1 || (S.multi && S.chosen.length !== 1)) { renderMultiSheet(); return; }
   var n = S.chosen[0];
   if (!n) {
-    var cnt = S.parts.filter(function (p) { return !p.room && p.type !== 3001; }).length;
-    el.innerHTML = (S.size ? '<div class="crumb">საერთო გაბარიტი</div>' + sizeRows(S.size) : '') +
-      '<div class="hint">შეეხე დეტალს, რომ ნახო სახელი, ზომა და მასალა. სხვა დეტალებზე მიყოლებით შეხება მათაც მონიშნავს, ცარიელ ადგილზე შეხება მონიშვნას მოხსნის.</div>';
+    if (!showSize || !S.size) { $('sheet').hidden = true; el.innerHTML = ''; return; }
+    el.innerHTML = '<div class="ptitle"><h2>საერთო გაბარიტი</h2></div>' + sizeRows(S.size) + '<div class="crumb">მმ</div>';
     return;
   }
   var path = pathOf(n).map(function (p) { return esc(niceName(p)); });
@@ -1118,6 +1120,7 @@ $('bViews').onclick = function () { var h = $('pViews').hidden; closePops(); $('
 $('bExplode').onclick = function () { var h = $('pExplode').hidden; closePops(); $('pExplode').hidden = !h; };
 $('bFit').onclick = function () { setView('iso'); };
 $('bMeasure').onclick = function () { setMeasure(!M.on); };
+$('bSize').onclick = function () { showSize = !showSize; this.setAttribute('aria-pressed', showSize); if (showSize && $('sheet').classList.contains('mini')) $('sheetMin').click(); if (!S.chosen.length && !M.on) renderSheet(); };
 $('bRoom').onclick = function () { S.showRoom = !S.showRoom; this.setAttribute('aria-pressed', S.showRoom); applyLook(); };
 function press(sel, el) { $('pViews').querySelectorAll(sel).forEach(function (b) { b.setAttribute('aria-pressed', b === el); }); }
 $('pViews').addEventListener('click', function (e) {
@@ -1158,6 +1161,7 @@ function openBytes(bytes, name) {
     if (M.on) setMeasure(false); clearMeasure();
     if (S.multi) setMulti(false);
     build(nodes);
+    if (!window._hinted) { window._hinted = true; toast('შეეხე დეტალს: ნახავ სახელს, ზომას და მასალას.'); }
   } catch (e) {
     console.error(e);
     toast('ფაილი ვერ გაიხსნა: ' + (e.message || e) + '. შეამოწმე, რომ ეს ბაზისის .b3d ფაილია.');
