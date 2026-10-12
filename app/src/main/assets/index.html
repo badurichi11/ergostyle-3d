@@ -154,7 +154,6 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   <div class="rail">
     <button class="btn" id="bFit" aria-label="მთლიანი ხედი" title="მთლიანი ხედი"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
     <button class="btn" id="bViews" aria-label="ხედი, რეჟიმი, კვეთა" title="ხედი, რეჟიმი, კვეთა"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
-    <button class="btn" id="bMulti" aria-pressed="false" aria-label="რამდენიმე დეტალის მონიშვნა" title="რამდენიმე დეტალის მონიშვნა"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M5 7l1.5 1.5L9 5.5M15 17l1.5 1.5 2.5-3"/></svg></button>
     <button class="btn" id="bMeasure" aria-pressed="false" aria-label="გაზომვა" title="გაზომვა"><svg viewBox="0 0 24 24"><path d="M3 17L17 3l4 4L7 21z M7 13l2 2M10 10l2 2M13 7l2 2"/></svg></button>
     <button class="btn" id="bExplode" aria-label="დაშლა" title="დაშლილი ხედი"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
     <button class="btn" id="bRoom" aria-pressed="true" aria-label="კედლები" title="კედლები და იატაკი"><svg viewBox="0 0 24 24"><path d="M4 20V6l8-3 8 3v14M4 20h16M9 20v-6h6v6"/></svg></button>
@@ -759,8 +758,7 @@ renderer.domElement.addEventListener('pointerup', function (e) {
   var p = pick(e);
   if (M.on) { if (p.hit) measureTap(p); return; }
   var n = p.part ? p.part.object.userData.node : null;
-  if (S.multi) { if (n) toggleChosen(n); return; }
-  select(n && n === S.sel ? null : n);
+  if (n) toggleChosen(n); else if (S.chosen.length) select(null);
 });
 
 function select(n, fly) {
@@ -774,13 +772,11 @@ function toggleChosen(n) {
   applyLook(); renderSheet(); markList();
 }
 function chooseMany(list, fly) {
-  setMulti(true, true);
   S.chosen = list.slice(); S.sel = null;
   applyLook(); renderSheet(); markList(); if (fly) focusNodes(list);
 }
 function setMulti(on, keep) {
-  if (on && M.on) setMeasure(false);
-  S.multi = on; $('bMulti').setAttribute('aria-pressed', on);
+  on = false; S.multi = false;
   if (!keep) { if (!on && S.chosen.length > 1) { S.chosen = []; S.sel = null; } }
   updateModeTag(); applyLook(); renderSheet(); renderList();
 }
@@ -914,7 +910,7 @@ function renderSheet() {
   if (!n) {
     var cnt = S.parts.filter(function (p) { return !p.room && p.type !== 3001; }).length;
     el.innerHTML = (S.size ? '<div class="crumb">საერთო გაბარიტი</div>' + sizeRows(S.size) : '') +
-      '<div class="hint">შეეხე დეტალს, რომ ნახო სახელი, ზომა და მასალა. ' + (cnt ? cnt + ' დეტალი.' : '') + '</div>';
+      '<div class="hint">შეეხე დეტალს, რომ ნახო სახელი, ზომა და მასალა. სხვა დეტალებზე მიყოლებით შეხება მათაც მონიშნავს, ცარიელ ადგილზე შეხება მონიშვნას მოხსნის.</div>';
     return;
   }
   var path = pathOf(n).map(function (p) { return esc(niceName(p)); });
@@ -958,15 +954,15 @@ function renderMultiSheet() {
     h += '<div class="names">' + Object.keys(names).slice(0, 8).map(function (k) { return esc(k) + (names[k] > 1 ? ' ×' + names[k] : ''); }).join(', ') + (Object.keys(names).length > 8 ? '…' : '') + '</div>';
   }
   h += '<div class="acts">' + (L.length ? '<button class="btn" id="aHideM">დამალვა</button><button class="btn" id="aIsoM">მხოლოდ ესენი</button><button class="btn" id="aFocusM">მიახლოება</button><button class="btn" id="aClearM">მოხსნა</button>' : '') +
-    '<button class="btn primary" id="aEndM">დასრულება</button></div>';
+    '<button class="btn primary" id="aEndM">დახურვა</button></div>';
   el.innerHTML = h;
   if (L.length) {
     $('aHideM').onclick = function () { hideNodes(L.slice()); };
     $('aIsoM').onclick = function () { isolateNodes(L.slice()); };
     $('aFocusM').onclick = function () { focusNodes(L); };
-    $('aClearM').onclick = function () { S.chosen = []; S.sel = null; applyLook(); renderSheet(); markList(); };
+    $('aClearM').onclick = function () { select(null); };
   }
-  $('aEndM').onclick = function () { S.chosen = []; S.sel = null; setMulti(false); };
+  $('aEndM').onclick = function () { select(null); };
 }
 
 var MINI_PLUS = '<svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg>', MINI_MINUS = '<svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg>';
@@ -1074,8 +1070,7 @@ $('dbody').addEventListener('click', function (e) {
   if (r) {
     var n = S.nodes[+r.dataset.i];
     if (isHidden(n)) { delete S.hidden['p' + n.idx]; if (S.iso) S.iso[n.idx] = true; }
-    if (S.multi) { toggleChosen(n); renderList(); return; }
-    select(n, true); if (innerWidth < 760) openDrawer(false);
+    toggleChosen(n); renderList(); if (S.chosen.length === 1) focusNodes([n]);
   }
 });
 $('q').addEventListener('input', renderList);
@@ -1092,7 +1087,6 @@ function closePops() { $('pViews').hidden = true; $('pExplode').hidden = true; }
 $('bViews').onclick = function () { var h = $('pViews').hidden; closePops(); $('pViews').hidden = !h; };
 $('bExplode').onclick = function () { var h = $('pExplode').hidden; closePops(); $('pExplode').hidden = !h; };
 $('bFit').onclick = function () { setView('iso'); };
-$('bMulti').onclick = function () { setMulti(!S.multi); };
 $('bMeasure').onclick = function () { setMeasure(!M.on); };
 $('bRoom').onclick = function () { S.showRoom = !S.showRoom; this.setAttribute('aria-pressed', S.showRoom); applyLook(); };
 function press(sel, el) { $('pViews').querySelectorAll(sel).forEach(function (b) { b.setAttribute('aria-pressed', b === el); }); }
@@ -1159,7 +1153,6 @@ window.goBack = function () {
   if ($('drawer').classList.contains('open')) { openDrawer(false); return true; }
   if (!$('pViews').hidden || !$('pExplode').hidden) { closePops(); return true; }
   if (M.on) { setMeasure(false); return true; }
-  if (S.multi) { S.chosen = []; setMulti(false); return true; }
   if (S.chosen.length) { select(null); return true; }
   return false;
 };
