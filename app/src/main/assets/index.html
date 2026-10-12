@@ -48,7 +48,7 @@ button{font:inherit;color:inherit}
 .chk{display:flex;align-items:center;gap:8px;font-size:13.5px}
 .chk input{accent-color:var(--accent);width:18px;height:18px}
 input[type=range]{width:100%;accent-color:var(--accent)}
-.sheet{position:absolute;left:12px;top:62px;width:min(300px,calc(100% - 92px));z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);max-height:calc(100% - 140px);overflow:auto}
+.sheet{position:absolute;left:12px;top:62px;width:min(196px,calc(100% - 92px));z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);max-height:calc(100% - 140px);overflow:auto}
 #sheetBody{padding:9px 34px 10px 11px;display:grid;gap:6px}
 .sheet.mini #sheetBody>*:not(.ptitle):not(.dims){display:none}
 .sheet.mini{max-height:none}
@@ -57,9 +57,16 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 #sheetMin svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
 .sheet .hint{font-size:12.5px}
 .sheet .ptitle h2{font-size:14.5px}
-.sheet .dims{font-size:15.5px}
+.sheet .dims{font-size:15px;line-height:1.35}
 .sheet .dims small{font-size:11px}
-.sheet .kv{font-size:12px;gap:3px 10px}
+.sheet .kv{font-size:12px;gap:1px;grid-template-columns:1fr}
+.sheet .kv dt{font-size:11px;margin-top:4px}
+.sheet .acts{flex-direction:column}
+.sheet .acts .btn{width:100%}
+.sheet .seg{grid-template-columns:1fr}
+.sheet .mgrid{grid-template-columns:1fr}
+.sheet .mgrid span{display:flex;justify-content:space-between;text-align:left}
+.sheet .mgrid b{display:inline}
 .sheet .crumb{font-size:12px}
 .sheet .names{font-size:12px}
 .sheet .acts{gap:5px}
@@ -536,6 +543,7 @@ function dimsOf(n) {
 }
 function num(v) { return String(+(+v).toFixed(1)); }
 function dimText(d) { return d ? d.map(num).join(' × ') : '—'; }
+function sizeRows(v) { return '<div class="mgrid"><span><b>სიგანე</b>' + Math.round(v.x) + '</span><span><b>სიმაღლე</b>' + Math.round(v.y) + '</span><span><b>სიღრმე</b>' + Math.round(v.z) + '</span></div>'; }
 function sizeText(v) { return [v.x, v.y, v.z].map(function (x) { return Math.round(x); }).join(' × '); }
 function blockOf(n) { var p = n.parent, top = null; while (p) { top = p; p = p.parent; } return top; }
 function pathOf(n) { var a = [], p = n.parent; while (p) { a.unshift(p); p = p.parent; } return a; }
@@ -873,7 +881,7 @@ function renderSheet() {
   var n = S.chosen[0];
   if (!n) {
     var cnt = S.parts.filter(function (p) { return !p.room && p.type !== 3001; }).length;
-    el.innerHTML = (S.size ? '<div class="crumb">საერთო გაბარიტი (სიგანე × სიმაღლე × სიღრმე)</div><div class="dims">' + sizeText(S.size) + '<small>მმ</small></div>' : '') +
+    el.innerHTML = (S.size ? '<div class="crumb">საერთო გაბარიტი</div>' + sizeRows(S.size) : '') +
       '<div class="hint">შეეხე დეტალს, რომ ნახო სახელი, ზომა და მასალა. ' + (cnt ? cnt + ' დეტალი.' : '') + '</div>';
     return;
   }
@@ -914,7 +922,7 @@ function renderMultiSheet() {
   if (!L.length) h += '<div class="hint">შეეხე დეტალებს, რომ მონიშნო. ხელახლა შეხება მონიშვნას მოხსნის. სიიდან ბლოკის სახელზე დაჭერით მთელ ბლოკს მონიშნავ.</div>';
   else {
     if (g) h += '<div class="crumb">' + L.length + ' დეტალი</div>';
-    if (sz) h += '<div class="crumb">გაბარიტი (სიგანე × სიმაღლე × სიღრმე)</div><div class="dims">' + sizeText(sz) + '<small>მმ</small></div>';
+    if (sz) h += '<div class="crumb">გაბარიტი</div>' + sizeRows(sz);
     h += '<div class="names">' + Object.keys(names).slice(0, 8).map(function (k) { return esc(k) + (names[k] > 1 ? ' ×' + names[k] : ''); }).join(', ') + (Object.keys(names).length > 8 ? '…' : '') + '</div>';
   }
   h += '<div class="acts">' + (L.length ? '<button class="btn" id="aHideM">დამალვა</button><button class="btn" id="aIsoM">მხოლოდ ესენი</button><button class="btn" id="aFocusM">მიახლოება</button><button class="btn" id="aClearM">მოხსნა</button>' : '') +
