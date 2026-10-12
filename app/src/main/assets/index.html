@@ -6,7 +6,7 @@
 <style>body{margin:0;font-size:14px}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
 <title>ერგოსტილი 3D ნახაზი</title>
 <style>
-/* Layout: full-screen 3D workbench; top bar, right tool rail, bottom sheet for the tapped part, left drawer for the parts list */
+/* Layout: full-screen 3D workbench; top bar, right tool rail, bottom sheet for the tapped part, left drawer for the parts list and cut list */
 :root{
   --bg:#e9edf1; --surface:#ffffff; --ink:#18212b; --muted:#5d6a79; --line:#d3dae2;
   --accent:#c2410c; --accent-ink:#ffffff; --accent-soft:#fbe5d8; --shadow:0 6px 24px rgba(20,32,48,.14);
@@ -22,7 +22,7 @@
 [hidden]{display:none!important}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);overflow:hidden;-webkit-tap-highlight-color:transparent}
-#app{position:relative;height:100%;width:100%}
+#app{position:relative;height:100%;width:100%;overflow:hidden}
 #view{position:absolute;inset:0;touch-action:none}
 #view canvas{display:block}
 button{font:inherit;color:inherit}
@@ -31,18 +31,22 @@ button{font:inherit;color:inherit}
 .chip{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);min-height:42px;display:flex;align-items:center;gap:8px;padding:0 12px}
 .file{flex:1;min-width:0}
 .file b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}
-.file small{color:var(--muted);font-size:12px;white-space:nowrap}
+.file small{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn{cursor:pointer;border:1px solid var(--line);background:var(--surface);border-radius:10px;min-height:42px;min-width:42px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:var(--shadow);font-size:14px}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
 .btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
-.btn:focus-visible,.row:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn:focus-visible,.row:focus-visible,.gname:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .rail{position:absolute;right:12px;top:64px;display:flex;flex-direction:column;gap:8px;z-index:4}
 .rail .btn{width:46px;height:46px;padding:0}
-.pop{position:absolute;right:66px;top:64px;z-index:6;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:12px;display:grid;gap:8px;width:min(260px,calc(100vw - 92px))}
-.pop h3{margin:0;font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:500;text-transform:uppercase}
+.pop{position:absolute;right:66px;top:64px;z-index:6;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:12px;display:grid;gap:8px;width:min(280px,calc(100vw - 92px));max-height:calc(100% - 200px);overflow:auto}
+.pop h3{margin:4px 0 0;font-size:12px;letter-spacing:.06em;color:var(--muted);font-weight:500;text-transform:uppercase}
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.seg .btn{box-shadow:none;min-height:38px;font-size:13px}
+.seg.three{grid-template-columns:1fr 1fr 1fr}
+.seg.four{grid-template-columns:repeat(4,1fr)}
+.seg .btn{box-shadow:none;min-height:38px;font-size:13px;padding:0 6px}
+.chk{display:flex;align-items:center;gap:8px;font-size:13.5px}
+.chk input{accent-color:var(--accent);width:18px;height:18px}
 input[type=range]{width:100%;accent-color:var(--accent)}
 .sheet{position:absolute;left:12px;right:12px;bottom:12px;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px;display:grid;gap:8px;max-height:46%;overflow:auto}
 .sheet .hint{color:var(--muted);font-size:14px}
@@ -51,41 +55,62 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .sw{width:18px;height:18px;border-radius:5px;border:1px solid rgba(0,0,0,.25);flex:none;margin-top:2px}
 .dims{font-family:var(--f-data);font-size:20px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .dims small{font-family:var(--f-body);font-size:12px;color:var(--muted);margin-left:6px}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13.5px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13.5px;margin:0}
 .kv dt{color:var(--muted)}
 .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .crumb{font-size:13px;color:var(--muted)}
 .crumb b{color:var(--ink);font-weight:600}
 .acts{display:flex;gap:8px;flex-wrap:wrap}
 .acts .btn{box-shadow:none;min-height:36px;font-size:13px}
-.drawer{position:absolute;top:0;bottom:0;left:0;width:min(380px,92vw);z-index:8;background:var(--surface);border-right:1px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;transform:translateX(-105%);transition:transform .22s ease}
+.acts .btn.primary{box-shadow:none}
+.names{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.drawer{position:absolute;top:0;bottom:0;left:0;width:min(400px,94vw);z-index:8;background:var(--surface);border-right:1px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;transform:translateX(-105%);transition:transform .22s ease}
 .drawer.open{transform:none}
 .dhead{display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1px solid var(--line)}
 .dhead input{flex:1;min-width:0;height:40px;border:1px solid var(--line);border-radius:9px;padding:0 10px;background:var(--bg);color:var(--ink);font:inherit}
 .tabs{display:flex;gap:6px;padding:8px 12px 0}
-.tabs .btn{box-shadow:none;min-height:34px;font-size:13px;flex:1}
+.tabs .btn{box-shadow:none;min-height:34px;font-size:13px;flex:1;padding:0 6px}
 .dbody{overflow:auto;flex:1;padding:6px 0 16px}
-.grp{padding:8px 12px 4px;font-size:12px;letter-spacing:.05em;color:var(--muted);display:flex;align-items:center;gap:8px}
-.grp span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:uppercase}
+.grp{padding:8px 12px 4px;display:flex;align-items:center;gap:6px}
+.gname{flex:1;min-width:0;border:0;background:none;cursor:pointer;text-align:left;padding:2px 0;font-size:12px;letter-spacing:.05em;color:var(--muted);text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gname:hover{color:var(--accent)}
 .eye{border:0;background:none;cursor:pointer;padding:4px;color:var(--muted);display:inline-flex}
 .eye svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8}
 .eye.off{opacity:.45}
-.row{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border:0;background:none;width:100%;text-align:left}
+.row{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border:0;background:none;width:100%;text-align:left;min-width:0}
 .row:hover{background:var(--bg)}
 .row.sel{background:var(--accent-soft)}
+.row.dim{opacity:.5}
 .row .nm{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .dm{font-family:var(--f-data);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tick{width:18px;height:18px;border:1.5px solid var(--line);border-radius:5px;flex:none;display:inline-flex;align-items:center;justify-content:center}
+.row.sel .tick{background:var(--accent);border-color:var(--accent)}
+.row.sel .tick::after{content:"";width:8px;height:4px;border-left:2px solid var(--accent-ink);border-bottom:2px solid var(--accent-ink);transform:rotate(-45deg) translate(1px,-1px)}
 .mrow{display:flex;align-items:center;gap:10px;padding:8px 12px}
 .mrow input[type=color]{width:34px;height:30px;border:1px solid var(--line);border-radius:7px;padding:0;background:none;flex:none}
 .mrow .nm{flex:1;min-width:0;font-size:13.5px}
 .mrow .ct{font-family:var(--f-data);font-size:12px;color:var(--muted)}
+.cut{padding:4px 12px 12px;overflow-x:auto}
+.cut h4{margin:14px 0 6px;font-size:13.5px;font-weight:600;display:flex;gap:8px;align-items:baseline}
+.cut h4 small{font-weight:400;color:var(--muted);font-family:var(--f-data);font-size:12px}
+.cut table{border-collapse:collapse;width:100%;font-size:13px}
+.cut th{text-align:left;font-weight:500;color:var(--muted);font-size:11.5px;letter-spacing:.04em;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.cut td{padding:6px;border-bottom:1px solid var(--line);vertical-align:top}
+.cut td.n{font-family:var(--f-data);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cut tr[data-k]{cursor:pointer}
+.cut tr[data-k]:hover td{background:var(--bg)}
 .scrim{position:absolute;inset:0;background:rgba(10,16,24,.35);z-index:7}
-.toast{position:absolute;left:50%;top:116px;transform:translateX(-50%);z-index:9;background:var(--ink);color:var(--surface);padding:8px 8px 8px 14px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px}
+.toast{position:absolute;left:50%;top:150px;transform:translateX(-50%);z-index:9;background:var(--ink);color:var(--surface);padding:8px 8px 8px 14px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px}
 .toast button{border:0;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;white-space:nowrap}
 .hchip{position:absolute;top:64px;left:12px;z-index:4;background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;min-height:42px;padding:0 14px;font-weight:600;font-size:14px;box-shadow:var(--shadow);cursor:pointer;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 92px)}
-.hchip svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8}
+.hchip svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;flex:none}
+.mode{position:absolute;top:112px;left:12px;z-index:4;background:var(--ink);color:var(--surface);border-radius:8px;padding:6px 10px;font-size:12.5px;pointer-events:none;max-width:calc(100% - 92px)}
+.mlabel{position:absolute;z-index:3;transform:translate(-50%,-50%);background:var(--accent);color:var(--accent-ink);font-family:var(--f-data);font-size:14px;font-weight:500;padding:3px 7px;border-radius:7px;pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums;box-shadow:var(--shadow)}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-family:var(--f-data);font-size:13px;font-variant-numeric:tabular-nums}
+.mgrid span{background:var(--bg);border-radius:7px;padding:6px 8px;text-align:center;min-width:0}
+.mgrid b{display:block;font-family:var(--f-body);font-weight:500;color:var(--muted);font-size:11.5px}
 .drop{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(194,65,12,.15);border:3px dashed var(--accent);font-size:18px;font-weight:600}
-@media (min-width:760px){.sheet{left:auto;width:380px;right:70px}}
+@media (min-width:760px){.sheet{left:auto;width:400px;right:70px}}
 @media (prefers-reduced-motion:reduce){.drawer{transition:none}}
 </style>
 
@@ -103,25 +128,51 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
   <div class="rail">
     <button class="btn" id="bFit" aria-label="მთლიანი ხედი" title="მთლიანი ხედი"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
-    <button class="btn" id="bViews" aria-label="ხედები და ფერები" title="ხედები და ფერები"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
+    <button class="btn" id="bViews" aria-label="ხედი, რეჟიმი, კვეთა" title="ხედი, რეჟიმი, კვეთა"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
+    <button class="btn" id="bMulti" aria-pressed="false" aria-label="რამდენიმე დეტალის მონიშვნა" title="რამდენიმე დეტალის მონიშვნა"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M5 7l1.5 1.5L9 5.5M15 17l1.5 1.5 2.5-3"/></svg></button>
+    <button class="btn" id="bMeasure" aria-pressed="false" aria-label="გაზომვა" title="გაზომვა"><svg viewBox="0 0 24 24"><path d="M3 17L17 3l4 4L7 21z M7 13l2 2M10 10l2 2M13 7l2 2"/></svg></button>
     <button class="btn" id="bExplode" aria-label="დაშლა" title="დაშლილი ხედი"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
     <button class="btn" id="bRoom" aria-pressed="true" aria-label="კედლები" title="კედლები და იატაკი"><svg viewBox="0 0 24 24"><path d="M4 20V6l8-3 8 3v14M4 20h16M9 20v-6h6v6"/></svg></button>
   </div>
 
   <div class="pop" id="pViews" hidden>
     <h3>ხედი</h3>
-    <div class="seg">
+    <div class="seg three">
       <button class="btn" data-view="iso">3D</button>
       <button class="btn" data-view="front">წინიდან</button>
-      <button class="btn" data-view="left">გვერდიდან</button>
+      <button class="btn" data-view="back">უკნიდან</button>
+      <button class="btn" data-view="left">მარცხნიდან</button>
+      <button class="btn" data-view="right">მარჯვნიდან</button>
       <button class="btn" data-view="top">ზემოდან</button>
+      <button class="btn" data-view="bottom">ქვემოდან</button>
+      <button class="btn" data-view="iso2">3D უკნიდან</button>
+    </div>
+    <h3>პროექცია</h3>
+    <div class="seg">
+      <button class="btn" data-proj="persp" aria-pressed="true">პერსპექტივა</button>
+      <button class="btn" data-proj="ortho" aria-pressed="false">ორთოგონალური</button>
+    </div>
+    <h3>რეჟიმი</h3>
+    <div class="seg three">
+      <button class="btn" data-disp="solid" aria-pressed="true">ფერადი</button>
+      <button class="btn" data-disp="xray" aria-pressed="false">გამჭვირვალე</button>
+      <button class="btn" data-disp="wire" aria-pressed="false">კარკასი</button>
     </div>
     <h3>ფერები</h3>
     <div class="seg">
       <button class="btn" data-color="mat" aria-pressed="true">მასალით</button>
       <button class="btn" data-color="block" aria-pressed="false">ბლოკებით</button>
     </div>
-    <label class="seg" style="grid-template-columns:auto 1fr;align-items:center;font-size:13.5px"><input type="checkbox" id="cEdges" checked style="accent-color:var(--accent);width:18px;height:18px"> კონტურის ხაზები</label>
+    <label class="chk"><input type="checkbox" id="cEdges" checked> კონტურის ხაზები</label>
+    <h3>კვეთა</h3>
+    <div class="seg four">
+      <button class="btn" data-clip="" aria-pressed="true">არა</button>
+      <button class="btn" data-clip="x" aria-pressed="false">სიგანე</button>
+      <button class="btn" data-clip="y" aria-pressed="false">სიმაღლე</button>
+      <button class="btn" data-clip="z" aria-pressed="false">სიღრმე</button>
+    </div>
+    <input type="range" id="rClip" min="0" max="1000" value="500" aria-label="კვეთის ადგილი" disabled>
+    <button class="btn" id="bFlip" style="box-shadow:none;min-height:36px;font-size:13px" disabled>მხარის შეცვლა</button>
   </div>
 
   <div class="pop" id="pExplode" hidden>
@@ -138,11 +189,17 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       <input id="q" type="search" placeholder="ძებნა: გვერდი, თარო, ფასადი…" autocomplete="off">
       <button class="btn" id="bClose" aria-label="დახურვა" style="box-shadow:none"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
-    <div class="tabs"><button class="btn" id="tParts" aria-pressed="true">დეტალები</button><button class="btn" id="tMats" aria-pressed="false">მასალები</button></div>
+    <div class="tabs">
+      <button class="btn" id="tParts" aria-pressed="true">დეტალები</button>
+      <button class="btn" id="tCut" aria-pressed="false">ჭრის სია</button>
+      <button class="btn" id="tMats" aria-pressed="false">მასალები</button>
+    </div>
     <div class="dbody" id="dbody"></div>
   </aside>
   <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastAct" hidden></button></div>
   <button class="hchip" id="hchip" hidden></button>
+  <div class="mode" id="modeTag" hidden></div>
+  <div id="labels"></div>
   <div class="drop" id="drop" hidden>გადმოაგდე .b3d ფაილი</div>
 </div>
 
@@ -321,6 +378,7 @@ B3D.setInflate(function (b) {
 var $ = function (id) { return document.getElementById(id); };
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k) || 'null'); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { return null; } }
+var EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 
 /* ---------- naming ---------- */
 var RU = { 'фронтальная': 'ფრონტალური პანელი', 'горизонтальная': 'ჰორიზონტალური პანელი', 'вертикальная': 'ვერტიკალური პანელი', 'профиль': 'პროფილი', 'гнутая': 'მოხრილი დეტალი', 'ящик': 'უჯრა', 'новая модель': 'მოდელი' };
@@ -330,6 +388,7 @@ function niceName(n) {
   return s || (n.type === 3001 ? 'ფურნიტურა' : 'დეტალი');
 }
 function isRoom(n) { return /კედელ|იატაკ|ჭერი|стена|пол$/i.test(n.mat); }
+function isGlass(n) { return /მინა|стекл/i.test(n.mat); }
 
 /* ---------- colors ---------- */
 var MAT_RULES = [
@@ -361,19 +420,30 @@ var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 $('view').appendChild(renderer.domElement);
 var scene = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera(40, 1, 5, 200000);
+var FOV = 40;
+var persp = new THREE.PerspectiveCamera(FOV, 1, 5, 200000);
+var ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -200000, 200000);
+var camera = persp;
 var controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.12; controls.screenSpacePanning = true;
 scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f96, 0.85));
 var sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(0.6, 1, 0.8); scene.add(sun);
 var sun2 = new THREE.DirectionalLight(0xffffff, 0.25); sun2.position.set(-0.8, 0.3, -0.5); scene.add(sun2);
 var root = new THREE.Group(); scene.add(root);
+var clipPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);
 
-function resize() { var w = $('view').clientWidth, h = $('view').clientHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
-window.addEventListener('resize', resize); resize();
+var aspect = 1;
+function orthoFrustum() {
+  var h = Math.max(200, S.radius * 1.15);
+  ortho.left = -h * aspect; ortho.right = h * aspect; ortho.top = h; ortho.bottom = -h; ortho.updateProjectionMatrix();
+}
+function resize() {
+  var w = $('view').clientWidth, h = $('view').clientHeight; aspect = w / Math.max(1, h);
+  renderer.setSize(w, h); persp.aspect = aspect; persp.updateProjectionMatrix(); orthoFrustum(); needs = true;
+}
 var needs = true;
 controls.addEventListener('change', function () { needs = true; });
-(function loop() { requestAnimationFrame(loop); if (controls.update() || needs) { renderer.render(scene, camera); needs = false; } })();
+function loop() { requestAnimationFrame(loop); if (controls.update() || needs) { renderer.render(scene, camera); needs = false; placeLabels(); } }
 
 /* ---------- geometry ---------- */
 function tess(s, out) {
@@ -427,7 +497,12 @@ function buildShapes(n) {
 function setTrans(o, t) { o.position.set(t.x, t.y, t.z); o.quaternion.set(t.qx, t.qy, t.qz, t.qw).normalize(); }
 
 /* ---------- model state ---------- */
-var S = { nodes: [], parts: [], meshes: [], sel: null, colorMode: 'mat', showRoom: true, edges: true, explode: 0, hidden: {}, center: new THREE.Vector3(), radius: 1000 };
+var S = {
+  nodes: [], parts: [], meshes: [], sel: null, chosen: [], multi: false,
+  colorMode: 'mat', display: 'solid', showRoom: true, edges: true, explode: 0,
+  hidden: {}, iso: null, clip: '', clipFlip: false, clipT: 0.5,
+  center: new THREE.Vector3(), radius: 1000, box: new THREE.Box3(), size: null
+};
 var edgeMat = new THREE.LineBasicMaterial({ color: 0x1b1f24, transparent: true, opacity: 0.55 });
 var edgeSel = new THREE.LineBasicMaterial({ color: 0xc2410c });
 
@@ -441,14 +516,18 @@ function dimsOf(n) {
   if (n.type === 999) { return [Math.round(Math.max(w, h)), Math.round(t), n.matThick || 0].sort(function (a, b) { return b - a; }); }
   return [Math.round(w), Math.round(h), +(t || 0).toFixed(1)].sort(function (a, b) { return b - a; });
 }
-function dimText(d) { return d ? d.map(function (v) { return String(+v.toFixed ? +(+v).toFixed(1) : v); }).join(' × ') : '—'; }
+function num(v) { return String(+(+v).toFixed(1)); }
+function dimText(d) { return d ? d.map(num).join(' × ') : '—'; }
+function sizeText(v) { return [v.x, v.y, v.z].map(function (x) { return Math.round(x); }).join(' × '); }
 function blockOf(n) { var p = n.parent, top = null; while (p) { top = p; p = p.parent; } return top; }
 function pathOf(n) { var a = [], p = n.parent; while (p) { a.unshift(p); p = p.parent; } return a; }
+function descParts(g) { var out = []; (function w(x) { x.children.forEach(function (c) { if (c.mesh) out.push(c); w(c); }); })(g); return out; }
+function isChosen(n) { return S.chosen.indexOf(n) >= 0; }
 
 function clearModel() {
   root.traverse(function (o) { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== edgeMat && o.material !== edgeSel) o.material.dispose(); });
   root.clear();
-  S.parts = []; S.meshes = []; S.sel = null; S.hidden = {};
+  S.parts = []; S.meshes = []; S.sel = null; S.chosen = []; S.hidden = {}; S.iso = null;
 }
 
 function build(nodes) {
@@ -475,26 +554,30 @@ function build(nodes) {
     var m = new THREE.Mesh(geo, mat); setTrans(m, n.trans);
     var e = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), edgeMat); m.add(e); m.userData.edges = e;
     m.userData.node = n; n.mesh = m; n.room = isRoom(n); n.dims = dimsOf(n);
-    (objFor[n.idx] || parentObj).add(m);
-    if (objFor[n.idx]) { objFor[n.idx].remove(m); parentObj.add(m); }
+    parentObj.add(m);
     S.parts.push(n); S.meshes.push(m);
   });
   root.updateMatrixWorld(true);
-  // base positions for explode
   var box = new THREE.Box3();
-  S.meshes.forEach(function (m) { if (!m.userData.node.room) box.expandByObject(m); });
-  if (box.isEmpty()) S.meshes.forEach(function (m) { box.expandByObject(m); });
+  S.meshes.forEach(function (m) { if (!m.userData.node.room) box.expandByObject(m, true); });
+  if (box.isEmpty()) S.meshes.forEach(function (m) { box.expandByObject(m, true); });
+  S.box = box.clone();
   box.getCenter(S.center); S.radius = box.getSize(new THREE.Vector3()).length() / 2 || 1000;
+  S.size = box.isEmpty() ? null : box.getSize(new THREE.Vector3());
+  nodes.forEach(function (g) {
+    if (!g.obj) return;
+    var bb = new THREE.Box3();
+    descParts(g).forEach(function (c) { bb.expandByObject(c.mesh, true); });
+    g.size = bb.isEmpty() ? null : bb.getSize(new THREE.Vector3());
+  });
   S.meshes.forEach(function (m) {
     m.userData.base = m.position.clone();
-    var c = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3());
-    m.userData.wc = c;
+    m.userData.wc = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3());
     var q = new THREE.Quaternion(); m.parent.getWorldQuaternion(q); m.userData.pinv = q.invert();
   });
-  // block colors
   var bi = 0, bc = {};
   S.parts.forEach(function (n) { var b = blockOf(n); var k = b ? b.idx : -1; if (!(k in bc)) bc[k] = k === -1 ? '#cfd4da' : BLOCK_COLORS[bi++ % BLOCK_COLORS.length]; n.blockColor = bc[k]; });
-  applyLook(); applyExplode(); setView('iso', true); renderList(); renderSheet();
+  orthoFrustum(); applyClip(); applyLook(); applyExplode(); setView('iso', true); renderList(); renderSheet();
 }
 
 function baseColor(n) {
@@ -502,29 +585,36 @@ function baseColor(n) {
   if (n.type === 3001) return '#7c858f';
   return matColor(n.mat);
 }
-function hiddenByBlock(n) { var p = n.parent; while (p) { if (S.hidden[p.idx]) return true; p = p.parent; } return !!S.hidden['p' + n.idx]; }
+function isHidden(n) {
+  if (S.iso && !S.iso[n.idx]) return true;
+  var p = n.parent; while (p) { if (S.hidden[p.idx]) return true; p = p.parent; }
+  return !!S.hidden['p' + n.idx];
+}
 function applyLook() {
-  var sel = S.sel, selBlock = sel ? (sel.parent ? sel.parent.idx : null) : null;
+  var any = S.chosen.length > 0, single = S.chosen.length === 1 ? S.chosen[0] : null;
+  var selBlock = single && single.parent ? single.parent : null;
+  var xray = S.display === 'xray', wire = S.display === 'wire';
   S.meshes.forEach(function (m) {
-    var n = m.userData.node, mat = m.material;
-    m.visible = !(n.room && !S.showRoom) && !hiddenByBlock(n);
+    var n = m.userData.node, mat = m.material, ch = any && isChosen(n);
+    m.visible = !(n.room && (!S.showRoom || S.iso)) && !isHidden(n);
     mat.color.set(baseColor(n));
-    var glass = /მინა|стекл/i.test(n.mat);
-    var op = glass ? 0.35 : 1;
-    if (sel) {
-      if (n === sel) op = 1;
-      else if (selBlock !== null && n.parent && n.parent.idx === selBlock) op = Math.min(op, 0.5);
+    var op = isGlass(n) ? 0.35 : 1;
+    if (any) {
+      if (ch) op = 1;
+      else if (selBlock && n.parent === selBlock) op = Math.min(op, 0.5);
       else op = Math.min(op, n.room ? 0.06 : 0.14);
     } else if (n.room) op = 0.55;
+    if (xray && !ch) op = Math.min(op, n.room ? 0.08 : 0.25);
+    mat.visible = !(wire && !ch);
     mat.opacity = op; mat.depthWrite = op > 0.9;
-    mat.emissive && mat.emissive.set(n === sel ? 0x5a1d03 : 0x000000);
-    m.renderOrder = n === sel ? 2 : (op < 1 ? 1 : 0);
+    mat.emissive.set(ch ? 0x5a1d03 : 0x000000);
+    m.renderOrder = ch ? 2 : (op < 1 ? 1 : 0);
     var e = m.userData.edges;
-    e.visible = S.edges || n === sel;
-    e.material = n === sel ? edgeSel : edgeMat;
+    e.visible = S.edges || wire || ch;
+    e.material = ch ? edgeSel : edgeMat;
   });
-  edgeMat.opacity = sel ? 0.18 : 0.55;
-  updateHiddenChip();
+  edgeMat.opacity = wire ? (any ? 0.3 : 0.8) : (any ? 0.18 : 0.55);
+  updateChip();
   needs = true;
 }
 function applyExplode() {
@@ -537,59 +627,236 @@ function applyExplode() {
   });
   needs = true;
 }
+function applyClip() {
+  if (!S.clip) { renderer.clippingPlanes = []; needs = true; return; }
+  var ax = S.clip, mn = S.box.min[ax], mx = S.box.max[ax], v = mn + (mx - mn) * S.clipT;
+  var nrm = new THREE.Vector3(ax === 'x' ? 1 : 0, ax === 'y' ? 1 : 0, ax === 'z' ? 1 : 0);
+  if (!S.clipFlip) nrm.negate();
+  clipPlane.normal.copy(nrm); clipPlane.constant = S.clipFlip ? -v : v;
+  renderer.clippingPlanes = [clipPlane]; needs = true;
+}
 
 /* ---------- camera ---------- */
 var tween = null;
+function halfFov() { return Math.tan(FOV * Math.PI / 360); }
+function effDist() {
+  var d = camera.position.distanceTo(controls.target);
+  if (camera === ortho) d = (S.radius * 1.15) / (ortho.zoom * halfFov());
+  return d;
+}
+function applyDist(d) {
+  if (camera === ortho) { ortho.zoom = (S.radius * 1.15) / (d * halfFov()); ortho.updateProjectionMatrix(); }
+}
+function setProj(p) {
+  var target = controls.target.clone(), dir = camera.position.clone().sub(target).normalize(), d = effDist();
+  camera = p === 'ortho' ? ortho : persp;
+  camera.position.copy(target).add(dir.multiplyScalar(d)); camera.up.set(0, 1, 0);
+  controls.object = camera; applyDist(d); controls.update(); needs = true;
+}
+var VIEWS = {
+  front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0],
+  top: [0, 1, 0.0001], bottom: [0, -1, 0.0001], iso: [0.55, 0.42, 1], iso2: [-0.55, 0.42, -1]
+};
 function setView(v, instant) {
-  var c = S.center.clone(), dir;
-  var fv = camera.fov * Math.PI / 180, fh = 2 * Math.atan(Math.tan(fv / 2) * camera.aspect);
+  var c = S.center.clone(), dir = new THREE.Vector3().fromArray(VIEWS[v] || VIEWS.iso).normalize();
+  var fh = 2 * Math.atan(halfFov() * aspect), fv = FOV * Math.PI / 180;
   var r = S.radius / Math.sin(Math.min(fv, fh) / 2) * 1.05 + 100;
-  if (v === 'front') dir = new THREE.Vector3(0, 0, 1);
-  else if (v === 'left') dir = new THREE.Vector3(-1, 0, 0);
-  else if (v === 'top') dir = new THREE.Vector3(0, 1, 0.0001);
-  else dir = new THREE.Vector3(0.55, 0.42, 1).normalize();
-  flyTo(c, c.clone().add(dir.multiplyScalar(r)), instant);
+  flyTo(c, dir, r, instant);
 }
-function focusPart(n) {
-  if (!n || !n.mesh) return;
-  var b = new THREE.Box3().setFromObject(n.mesh), c = b.getCenter(new THREE.Vector3()), r = Math.max(250, b.getSize(new THREE.Vector3()).length());
-  var dir = camera.position.clone().sub(controls.target).normalize();
-  flyTo(c, c.clone().add(dir.multiplyScalar(r * 1.6)));
+function focusBox(b) {
+  if (b.isEmpty()) return;
+  var c = b.getCenter(new THREE.Vector3()), r = Math.max(250, b.getSize(new THREE.Vector3()).length());
+  flyTo(c, camera.position.clone().sub(controls.target).normalize(), r * 2.1 + 150);
 }
-function flyTo(target, pos, instant) {
-  if (instant || matchMedia('(prefers-reduced-motion: reduce)').matches) { controls.target.copy(target); camera.position.copy(pos); controls.update(); needs = true; return; }
-  var t0 = performance.now(), a = controls.target.clone(), b = camera.position.clone();
+function focusNodes(list) { var b = new THREE.Box3(); list.forEach(function (n) { if (n.mesh) b.expandByObject(n.mesh, true); }); focusBox(b); }
+function flyTo(target, dir, dist, instant) {
+  var a = controls.target.clone(), ad = effDist(), adir = camera.position.clone().sub(a).normalize();
+  function set(t, dv, d) { var dd = dv.clone(); if (dd.lengthSq() < 1e-4) dd.set(0, 1, 0.01); controls.target.copy(t); camera.position.copy(t).add(dd.normalize().multiplyScalar(d)); applyDist(d); controls.update(); needs = true; }
   cancelAnimationFrame(tween);
+  if (instant || matchMedia('(prefers-reduced-motion: reduce)').matches) { set(target, dir, dist); return; }
+  var t0 = performance.now();
   (function step(t) {
-    var u = Math.min(1, (t - t0) / 420), e = 1 - Math.pow(1 - u, 3);
-    controls.target.lerpVectors(a, target, e); camera.position.lerpVectors(b, pos, e); controls.update(); needs = true;
+    var u = Math.min(1, (t - t0) / 450), e = 1 - Math.pow(1 - u, 3);
+    set(a.clone().lerp(target, e), adir.clone().lerp(dir, e), ad + (dist - ad) * e);
     if (u < 1) tween = requestAnimationFrame(step);
   })(t0);
 }
 
 /* ---------- picking ---------- */
 var ray = new THREE.Raycaster(), down = null;
-renderer.domElement.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY, t: Date.now() }; closePops(); });
-renderer.domElement.addEventListener('pointerup', function (e) {
-  if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 7 || Date.now() - down.t > 600) { down = null; return; }
-  down = null;
+function pick(e) {
   var r = renderer.domElement.getBoundingClientRect();
   ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
   var vis = S.meshes.filter(function (m) { return m.visible; });
   var hits = ray.intersectObjects(vis, false);
-  var hit = null;
-  for (var i = 0; i < hits.length; i++) { var n = hits[i].object.userData.node; if (!n.room) { hit = n; break; } }
-  select(hit === S.sel ? null : hit);
+  if (S.clip) hits = hits.filter(function (h) { return clipPlane.distanceToPoint(h.point) >= -0.5; });
+  var solid = null, any = hits[0] || null;
+  for (var i = 0; i < hits.length; i++) if (!hits[i].object.userData.node.room) { solid = hits[i]; break; }
+  return { hit: solid || any, part: solid, rect: r, sx: e.clientX - r.left, sy: e.clientY - r.top };
+}
+renderer.domElement.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY, t: Date.now() }; closePops(); });
+renderer.domElement.addEventListener('pointerup', function (e) {
+  if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 7 || Date.now() - down.t > 600) { down = null; return; }
+  down = null;
+  var p = pick(e);
+  if (M.on) { if (p.hit) measureTap(p); return; }
+  var n = p.part ? p.part.object.userData.node : null;
+  if (S.multi) { if (n) toggleChosen(n); return; }
+  select(n && n === S.sel ? null : n);
 });
 
-function select(n, fly) { S.sel = n; applyLook(); renderSheet(); markList(); if (n && fly) focusPart(n); }
+function select(n, fly) {
+  S.sel = n; S.chosen = n ? [n] : [];
+  applyLook(); renderSheet(); markList(); if (n && fly) focusNodes([n]);
+}
+function toggleChosen(n) {
+  var i = S.chosen.indexOf(n);
+  if (i >= 0) S.chosen.splice(i, 1); else S.chosen.push(n);
+  S.sel = S.chosen.length === 1 ? S.chosen[0] : null;
+  applyLook(); renderSheet(); markList();
+}
+function chooseMany(list, fly) {
+  setMulti(true, true);
+  S.chosen = list.slice(); S.sel = null;
+  applyLook(); renderSheet(); markList(); if (fly) focusNodes(list);
+}
+function setMulti(on, keep) {
+  if (on && M.on) setMeasure(false);
+  S.multi = on; $('bMulti').setAttribute('aria-pressed', on);
+  if (!keep) { if (!on && S.chosen.length > 1) { S.chosen = []; S.sel = null; } }
+  updateModeTag(); applyLook(); renderSheet(); renderList();
+}
+
+/* ---------- hide / isolate ---------- */
+function hideNodes(list) {
+  var keys = list.map(function (n) { return 'p' + n.idx; });
+  keys.forEach(function (k) { S.hidden[k] = true; });
+  S.chosen = []; S.sel = null; applyLook(); renderSheet(); renderList();
+  toast(list.length === 1 ? 'დეტალი დაიმალა.' : list.length + ' დეტალი დაიმალა.', 'დაბრუნება', function () { keys.forEach(function (k) { delete S.hidden[k]; }); applyLook(); renderList(); });
+}
+function isolateNodes(list) {
+  S.iso = {}; list.forEach(function (n) { S.iso[n.idx] = true; });
+  list.forEach(function (n) { delete S.hidden['p' + n.idx]; });
+  S.chosen = []; S.sel = null; if (S.multi) setMulti(false); applyLook(); renderSheet(); renderList(); focusNodes(list);
+  toast('ჩანს მხოლოდ მონიშნული.', 'ყველას ჩვენება', showAll);
+}
+function showAll() { S.hidden = {}; S.iso = null; applyLook(); renderList(); renderSheet(); toast('ყველა დეტალი ისევ ჩანს.'); }
+function updateChip() {
+  var c = $('hchip'), cnt = 0;
+  Object.keys(S.hidden).forEach(function (k) { if (S.hidden[k]) cnt++; });
+  if (!cnt && !S.iso) { c.hidden = true; return; }
+  c.innerHTML = EYE + '<span>' + (S.iso ? 'ჩანს მხოლოდ ნაწილი' : 'დამალულია ' + cnt) + ' · ყველაფრის ჩვენება</span>';
+  c.hidden = false;
+}
+$('hchip').onclick = showAll;
+function updateModeTag() {
+  var t = $('modeTag');
+  if (S.multi) { t.textContent = 'მონიშვნა: შეეხე დეტალებს, რომ დაამატო ან მოხსნა'; t.hidden = false; }
+  else if (M.on) { t.textContent = M.mode === 'face' ? 'გაზომვა: შეეხე ორ ზედაპირს' : 'გაზომვა: შეეხე ორ წერტილს'; t.hidden = false; }
+  else t.hidden = true;
+}
+
+/* ---------- measure ---------- */
+var M = { on: false, mode: 'pt', list: [], pend: null };
+var mGroup = new THREE.Group(); scene.add(mGroup);
+var mMat = new THREE.MeshBasicMaterial({ color: 0xc2410c, depthTest: false, transparent: true });
+var mLineMat = new THREE.LineBasicMaterial({ color: 0xc2410c, depthTest: false, transparent: true });
+var mLineMat2 = new THREE.LineDashedMaterial({ color: 0xc2410c, depthTest: false, transparent: true, dashSize: 12, gapSize: 8 });
+function dot(p) {
+  var d = new THREE.Mesh(new THREE.SphereGeometry(Math.max(4, S.radius * 0.006), 12, 8), mMat);
+  d.position.copy(p); d.renderOrder = 10; mGroup.add(d); return d;
+}
+function snapPoint(hit, sx, sy, rect) {
+  var best = hit.point.clone(), bd = 22, g = hit.object.geometry.attributes.position, v = new THREE.Vector3(), p = new THREE.Vector3();
+  hit.object.updateMatrixWorld();
+  for (var i = 0; i < g.count; i++) {
+    v.fromBufferAttribute(g, i).applyMatrix4(hit.object.matrixWorld);
+    p.copy(v).project(camera);
+    var d = Math.hypot((p.x + 1) / 2 * rect.width - sx, (1 - p.y) / 2 * rect.height - sy);
+    if (d < bd) { bd = d; best.copy(v); }
+  }
+  return best;
+}
+function measureTap(p) {
+  var h = p.hit, pt, nrm = null;
+  if (M.mode === 'face') {
+    pt = h.point.clone();
+    nrm = h.face.normal.clone().transformDirection(h.object.matrixWorld).normalize();
+  } else pt = snapPoint(h, p.sx, p.sy, p.rect);
+  if (!M.pend) { M.pend = { p: pt, n: nrm, dot: dot(pt) }; needs = true; renderMeasureSheet(); return; }
+  var a = M.pend.p, item = { mode: M.mode, objs: [M.pend.dot] };
+  if (M.mode === 'face') {
+    var n1 = M.pend.n, d = pt.clone().sub(a).dot(n1), foot = pt.clone().sub(n1.clone().multiplyScalar(d));
+    item.a = foot; item.b = pt; item.dist = Math.abs(d);
+    item.parallel = Math.abs(n1.dot(nrm)) > 0.985;
+    var guide = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, foot]), mLineMat2); guide.computeLineDistances(); guide.renderOrder = 10; mGroup.add(guide); item.objs.push(guide);
+  } else { item.a = a; item.b = pt; item.dist = a.distanceTo(pt); }
+  item.objs.push(dot(pt));
+  var ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints([item.a, item.b]), mLineMat); ln.renderOrder = 10; mGroup.add(ln); item.objs.push(ln);
+  var lab = document.createElement('div'); lab.className = 'mlabel'; lab.textContent = Math.round(item.dist) + ' მმ'; $('labels').appendChild(lab); item.label = lab;
+  M.list.push(item); M.pend = null; needs = true; renderMeasureSheet();
+}
+function removeMeasure(item) {
+  item.objs.forEach(function (o) { mGroup.remove(o); if (o.geometry) o.geometry.dispose(); });
+  if (item.label) item.label.remove();
+}
+function clearMeasure() {
+  M.list.forEach(removeMeasure); M.list = [];
+  if (M.pend) { mGroup.remove(M.pend.dot); M.pend = null; }
+  needs = true;
+}
+function placeLabels() {
+  if (!M.list.length) return;
+  var r = renderer.domElement.getBoundingClientRect();
+  M.list.forEach(function (it) {
+    var mid = it.a.clone().add(it.b).multiplyScalar(0.5).project(camera);
+    it.label.style.left = ((mid.x + 1) / 2 * r.width) + 'px'; it.label.style.top = ((1 - mid.y) / 2 * r.height) + 'px';
+    it.label.hidden = mid.z > 1 || mid.z < -1;
+  });
+}
+function renderMeasureSheet() {
+  var el = $('sheet'), last = M.list[M.list.length - 1];
+  var h = '<div class="ptitle"><h2>გაზომვა</h2></div>' +
+    '<div class="seg"><button class="btn" id="mPt" aria-pressed="' + (M.mode === 'pt') + '">წერტილიდან წერტილამდე</button><button class="btn" id="mFace" aria-pressed="' + (M.mode === 'face') + '">ზედაპირებს შორის</button></div>';
+  if (M.pend) h += '<div class="hint">ახლა შეეხე ' + (M.mode === 'face' ? 'მეორე ზედაპირს.' : 'მეორე წერტილს.') + '</div>';
+  else if (!last) h += '<div class="hint">' + (M.mode === 'face'
+      ? 'შეეხე ერთ ზედაპირს, მერე მეორეს. მაგალითად, ქვედა თაროს ზედა მხარეს და ზედა თაროს ქვედა მხარეს: მიიღებ მათ შორის სუფთა მანძილს.'
+      : 'შეეხე ორ წერტილს. კუთხესთან ახლოს შეხებისას წერტილი თვითონ მიება კუთხეს.') + '</div>';
+  if (last) {
+    var a = last.a, b = last.b;
+    h += '<div class="dims">' + Math.round(last.dist) + '<small>მმ' + (last.mode === 'face' ? ', ზედაპირებს შორის' : ', პირდაპირი მანძილი') + '</small></div>';
+    if (last.mode === 'pt') h += '<div class="mgrid"><span><b>სიგანე</b>' + Math.round(Math.abs(a.x - b.x)) + '</span><span><b>სიმაღლე</b>' + Math.round(Math.abs(a.y - b.y)) + '</span><span><b>სიღრმე</b>' + Math.round(Math.abs(a.z - b.z)) + '</span></div>';
+    else if (!last.parallel) h += '<div class="hint" style="font-size:12.5px">ზედაპირები პარალელური არ არის. ნაჩვენებია მანძილი პირველი ზედაპირიდან.</div>';
+    if (M.list.length > 1) h += '<div class="crumb">ეკრანზეა ' + M.list.length + ' გაზომვა</div>';
+  }
+  h += '<div class="acts">' + (M.list.length ? '<button class="btn" id="mUndo">ბოლოს წაშლა</button><button class="btn" id="mClear">ყველას წაშლა</button>' : '') + '<button class="btn primary" id="mExit">დასრულება</button></div>';
+  el.innerHTML = h;
+  $('mPt').onclick = function () { setMMode('pt'); };
+  $('mFace').onclick = function () { setMMode('face'); };
+  if ($('mUndo')) $('mUndo').onclick = function () { var it = M.list.pop(); if (it) removeMeasure(it); needs = true; renderMeasureSheet(); };
+  if ($('mClear')) $('mClear').onclick = function () { clearMeasure(); renderMeasureSheet(); };
+  $('mExit').onclick = function () { setMeasure(false); };
+}
+function setMMode(m) { M.mode = m; if (M.pend) { mGroup.remove(M.pend.dot); M.pend = null; needs = true; } updateModeTag(); renderMeasureSheet(); }
+function setMeasure(on) {
+  if (on && S.multi) setMulti(false);
+  M.on = on; $('bMeasure').setAttribute('aria-pressed', on);
+  if (on) { S.chosen = []; S.sel = null; applyLook(); if (S.explode) animExplode(0); }
+  else clearMeasure();
+  updateModeTag(); renderSheet();
+}
 
 /* ---------- sheet ---------- */
+function blockBtn(n) { return n.parent ? '<button class="btn" id="aBlock">მთელი ბლოკის მონიშვნა</button>' : ''; }
 function renderSheet() {
-  var n = S.sel, el = $('sheet');
+  var el = $('sheet');
+  if (M.on) { renderMeasureSheet(); return; }
+  if (S.chosen.length > 1 || (S.multi && S.chosen.length !== 1)) { renderMultiSheet(); return; }
+  var n = S.chosen[0];
   if (!n) {
     var cnt = S.parts.filter(function (p) { return !p.room && p.type !== 3001; }).length;
-    el.innerHTML = '<div class="hint">შეეხე ნებისმიერ დეტალს, რომ ნახო სახელი, ზომა და მასალა. ' + (cnt ? cnt + ' დეტალი.' : '') + '</div>';
+    el.innerHTML = (S.size ? '<div class="crumb">საერთო გაბარიტი (სიგანე × სიმაღლე × სიღრმე)</div><div class="dims">' + sizeText(S.size) + '<small>მმ</small></div>' : '') +
+      '<div class="hint">შეეხე დეტალს, რომ ნახო სახელი, ზომა და მასალა. ' + (cnt ? cnt + ' დეტალი.' : '') + '</div>';
     return;
   }
   var path = pathOf(n).map(function (p) { return esc(niceName(p)); });
@@ -602,81 +869,157 @@ function renderSheet() {
     (path.length ? '<div class="crumb">' + path.map(function (p, i) { return i === path.length - 1 ? '<b>' + p + '</b>' : p; }).join(' › ') + '</div>' : '') +
     (n.dims ? '<div class="dims">' + dimText(n.dims) + '<small>მმ</small></div>' : '') +
     '<dl class="kv"><dt>მასალა</dt><dd>' + esc(n.mat || '—') + '</dd>' +
-    '<dt>ტიპი</dt><dd>' + kind + (n.type === 4002 && n.thick ? ', სისქე ' + n.thick + ' მმ' : '') + '</dd>' +
+    '<dt>ტიპი</dt><dd>' + kind + (n.type === 4002 && n.thick ? ', სისქე ' + num(n.thick) + ' მმ' : '') + '</dd>' +
     (nb ? '<dt>წიბო</dt><dd>' + bandTxt + '</dd>' : '') +
+    (n.parent && n.parent.size ? '<dt>ბლოკის გაბარიტი</dt><dd style="font-family:var(--f-data)">' + sizeText(n.parent.size) + ' მმ</dd>' : '') +
     '<dt>ID</dt><dd style="font-family:var(--f-data)">' + esc(n.id) + '</dd></dl>' +
-    '<div class="acts"><button class="btn" id="aFocus">მიახლოება</button>' +
-    (n.parent ? '<button class="btn" id="aBlock">მთელი ბლოკი</button>' : '') +
-    '<button class="btn" id="aHide">დამალვა</button><button class="btn" id="aDone">დახურვა</button></div>';
-  $('aFocus').onclick = function () { focusPart(n); };
-  if ($('aBlock')) $('aBlock').onclick = function () {
-    var p = n.parent, b = new THREE.Box3(); p.obj && b.setFromObject(p.obj);
-    if (!b.isEmpty()) { var c = b.getCenter(new THREE.Vector3()), r = b.getSize(new THREE.Vector3()).length(); var dir = camera.position.clone().sub(controls.target).normalize(); flyTo(c, c.clone().add(dir.multiplyScalar(r * 1.5 + 200))); }
-  };
-  $('aHide').onclick = function () { var k = 'p' + n.idx; S.hidden[k] = true; select(null); renderList(); toast('დეტალი დაიმალა.', 'დაბრუნება', function () { delete S.hidden[k]; applyLook(); renderList(); }); };
-  $('aDone').onclick = function () { select(null); };
+    '<div class="acts"><button class="btn" id="aFocus">მიახლოება</button><button class="btn" id="aHide">დამალვა</button><button class="btn" id="aIso">მხოლოდ ეს</button>' +
+    blockBtn(n) + '<button class="btn" id="aDone">დახურვა</button></div>';
+  $('aFocus').onclick = function () { focusNodes([n]); };
+  $('aHide').onclick = function () { hideNodes([n]); };
+  $('aIso').onclick = function () { isolateNodes([n]); };
+  if ($('aBlock')) $('aBlock').onclick = function () { chooseMany(descParts(n.parent), true); };
+  $('aDone').onclick = function () { if (S.multi) setMulti(false); select(null); };
+}
+function groupOf(list) {
+  if (!list.length) return null;
+  var p = list[0].parent;
+  while (p) { var all = descParts(p); if (all.length === list.length && list.every(function (x) { return all.indexOf(x) >= 0; })) return p; p = null; }
+  return null;
+}
+function renderMultiSheet() {
+  var el = $('sheet'), L = S.chosen, g = groupOf(L);
+  var b = new THREE.Box3(); L.forEach(function (n) { if (n.mesh) b.expandByObject(n.mesh, true); });
+  var sz = b.isEmpty() ? null : b.getSize(new THREE.Vector3());
+  var names = {}; L.forEach(function (n) { var k = niceName(n); names[k] = (names[k] || 0) + 1; });
+  var h = '<div class="ptitle"><h2>' + (g ? esc(niceName(g)) : 'მონიშნულია ' + L.length + ' დეტალი') + '</h2></div>';
+  if (!L.length) h += '<div class="hint">შეეხე დეტალებს, რომ მონიშნო. ხელახლა შეხება მონიშვნას მოხსნის. სიიდან ბლოკის სახელზე დაჭერით მთელ ბლოკს მონიშნავ.</div>';
+  else {
+    if (g) h += '<div class="crumb">' + L.length + ' დეტალი</div>';
+    if (sz) h += '<div class="crumb">გაბარიტი (სიგანე × სიმაღლე × სიღრმე)</div><div class="dims">' + sizeText(sz) + '<small>მმ</small></div>';
+    h += '<div class="names">' + Object.keys(names).slice(0, 8).map(function (k) { return esc(k) + (names[k] > 1 ? ' ×' + names[k] : ''); }).join(', ') + (Object.keys(names).length > 8 ? '…' : '') + '</div>';
+  }
+  h += '<div class="acts">' + (L.length ? '<button class="btn" id="aHideM">დამალვა</button><button class="btn" id="aIsoM">მხოლოდ ესენი</button><button class="btn" id="aFocusM">მიახლოება</button><button class="btn" id="aClearM">მოხსნა</button>' : '') +
+    '<button class="btn primary" id="aEndM">დასრულება</button></div>';
+  el.innerHTML = h;
+  if (L.length) {
+    $('aHideM').onclick = function () { hideNodes(L.slice()); };
+    $('aIsoM').onclick = function () { isolateNodes(L.slice()); };
+    $('aFocusM').onclick = function () { focusNodes(L); };
+    $('aClearM').onclick = function () { S.chosen = []; S.sel = null; applyLook(); renderSheet(); markList(); };
+  }
+  $('aEndM').onclick = function () { S.chosen = []; S.sel = null; setMulti(false); };
 }
 
 /* ---------- drawer ---------- */
 var tab = 'parts';
-var EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 function renderList() {
   var q = ($('q').value || '').trim().toLowerCase(), h = '';
-  if (tab === 'mats') {
-    var mats = {};
-    S.parts.forEach(function (n) { if (n.mat && n.type !== 3001) mats[n.mat] = (mats[n.mat] || 0) + 1; });
-    Object.keys(mats).sort(function (a, b) { return mats[b] - mats[a]; }).forEach(function (m, i) {
-      if (q && m.toLowerCase().indexOf(q) < 0) return;
-      var c = matColor(m); if (c.charAt(0) !== '#') c = '#cccccc';
-      h += '<div class="mrow"><input type="color" id="mc' + i + '" value="' + c + '" data-mat="' + esc(m) + '" aria-label="ფერი: ' + esc(m) + '"><span class="nm">' + esc(m) + '</span><span class="ct">' + mats[m] + '</span></div>';
-    });
-    h += '<div class="mrow" style="color:var(--muted);font-size:12.5px">ფერი შეცვალე ისე, როგორც ბაზისშია. ეს ტელეფონი დაიმახსოვრებს.</div>';
-    $('dbody').innerHTML = h;
-    $('dbody').querySelectorAll('input[type=color]').forEach(function (inp) {
-      inp.addEventListener('input', function () { custom[inp.dataset.mat] = inp.value; store('ergo3d.colors', custom); applyLook(); });
-    });
-    return;
-  }
+  if (tab === 'mats') return renderMats(q);
+  if (tab === 'cut') return renderCut(q);
   function rows(list) {
     var out = '';
     list.forEach(function (n) {
       if (!n.mesh) return;
       var nm = niceName(n);
       if (q && (nm + ' ' + n.mat).toLowerCase().indexOf(q) < 0) return;
-      var off = S.hidden['p' + n.idx];
-      out += '<div style="display:flex;align-items:center"><button class="row' + (S.sel === n ? ' sel' : '') + '" data-i="' + n.idx + '"><span class="sw" style="background:' + baseColor(n) + '"></span><span class="nm">' + esc(nm) + '</span><span class="dm">' + dimText(n.dims) + '</span></button>' +
-        (off ? '<button class="eye off" data-show="' + n.idx + '" aria-label="ჩვენება">' + EYE + '</button>' : '') + '</div>';
+      var off = isHidden(n);
+      out += '<div style="display:flex;align-items:center"><button class="row' + (isChosen(n) ? ' sel' : '') + (off ? ' dim' : '') + '" data-i="' + n.idx + '">' +
+        (S.multi ? '<span class="tick"></span>' : '<span class="sw" style="background:' + baseColor(n) + '"></span>') +
+        '<span class="nm">' + esc(nm) + '</span><span class="dm">' + dimText(n.dims) + '</span></button>' +
+        '<button class="eye' + (off ? ' off' : '') + '" data-tog="' + n.idx + '" aria-label="' + (off ? 'ჩვენება' : 'დამალვა') + '">' + EYE + '</button></div>';
     });
     return out;
   }
   var groups = [], loose = [];
   S.nodes.forEach(function (n) { if (n.obj && n.children.length) groups.push(n); else if (!n.parent && n.mesh && !n.room) loose.push(n); });
-  if (loose.length) { var r0 = rows(loose); if (r0) h += '<div class="grp"><span>ცალკე დეტალები</span></div>' + r0; }
+  if (loose.length) { var r0 = rows(loose); if (r0) h += '<div class="grp"><span class="gname" style="cursor:default">ცალკე დეტალები</span></div>' + r0; }
   groups.forEach(function (g) {
     var kids = g.children.filter(function (c) { return c.mesh; });
     var r = rows(kids);
     if (!r && q) return;
     var depth = pathOf(g).length;
-    h += '<div class="grp" style="padding-left:' + (12 + depth * 12) + 'px"><span>' + esc(niceName(g)) + '</span><button class="eye' + (S.hidden[g.idx] ? ' off' : '') + '" data-blk="' + g.idx + '" aria-label="ბლოკის დამალვა/ჩვენება">' + EYE + '</button></div>' + r;
+    h += '<div class="grp" style="padding-left:' + (12 + depth * 12) + 'px"><button class="gname" data-gsel="' + g.idx + '" title="მთელი ბლოკის მონიშვნა">' + esc(niceName(g)) + ' · ' + descParts(g).length + '</button><button class="eye' + (S.hidden[g.idx] ? ' off' : '') + '" data-blk="' + g.idx + '" aria-label="ბლოკის დამალვა/ჩვენება">' + EYE + '</button></div>' + r;
   });
   var room = S.parts.filter(function (n) { return n.room && !n.parent; });
-  if (room.length && !q) h += '<div class="grp"><span>ოთახი</span></div>' + rows(room);
+  if (room.length && !q) h += '<div class="grp"><span class="gname" style="cursor:default">ოთახი</span></div>' + rows(room);
   $('dbody').innerHTML = h || '<div class="mrow" style="color:var(--muted)">ვერაფერი მოიძებნა.</div>';
 }
-function markList() { $('dbody').querySelectorAll('.row').forEach(function (r) { r.classList.toggle('sel', S.sel && +r.dataset.i === S.sel.idx); }); }
+function renderMats(q) {
+  var mats = {}, h = '';
+  S.parts.forEach(function (n) { if (n.mat && n.type !== 3001) mats[n.mat] = (mats[n.mat] || 0) + 1; });
+  Object.keys(mats).sort(function (a, b) { return mats[b] - mats[a]; }).forEach(function (m, i) {
+    if (q && m.toLowerCase().indexOf(q) < 0) return;
+    var c = matColor(m); if (c.charAt(0) !== '#') c = '#cccccc';
+    h += '<div class="mrow"><input type="color" id="mc' + i + '" value="' + c + '" data-mat="' + esc(m) + '" aria-label="ფერი: ' + esc(m) + '"><span class="nm">' + esc(m) + '</span><span class="ct">' + mats[m] + '</span></div>';
+  });
+  h += '<div class="mrow" style="color:var(--muted);font-size:12.5px">ფერი შეცვალე ისე, როგორც ბაზისშია. ეს ტელეფონი დაიმახსოვრებს.</div>';
+  $('dbody').innerHTML = h;
+  $('dbody').querySelectorAll('input[type=color]').forEach(function (inp) {
+    inp.addEventListener('input', function () { custom[inp.dataset.mat] = inp.value; store('ergo3d.colors', custom); applyLook(); });
+  });
+}
+var cutGroups = {};
+function renderCut(q) {
+  var byMat = {}; cutGroups = {};
+  S.parts.forEach(function (n) {
+    if (n.room || !n.dims || n.type === 3001) return;
+    if (q && (niceName(n) + ' ' + n.mat).toLowerCase().indexOf(q) < 0) return;
+    var key = n.type + '|' + n.mat + '|' + n.dims.join('x');
+    var mk = n.mat || '—';
+    if (!byMat[mk]) byMat[mk] = { rows: {}, qty: 0, area: 0, len: 0, profile: n.type !== 4002 };
+    var M2 = byMat[mk];
+    if (!M2.rows[key]) M2.rows[key] = { dims: n.dims, nodes: [], names: {}, bands: 0 };
+    var r = M2.rows[key]; r.nodes.push(n); r.names[niceName(n)] = 1;
+    r.bands = Math.max(r.bands, n.butts.filter(function (b) { return b.mat; }).length);
+    M2.qty++;
+    if (n.type === 4002) M2.area += n.dims[0] * n.dims[1] / 1e6; else M2.len += n.dims[0] / 1000;
+    cutGroups[key] = r.nodes;
+  });
+  var h = '<div class="cut">';
+  var mats = Object.keys(byMat).sort(function (a, b) { return byMat[b].qty - byMat[a].qty; });
+  if (!mats.length) h += '<p class="names">ვერაფერი მოიძებნა.</p>';
+  mats.forEach(function (m) {
+    var g = byMat[m];
+    h += '<h4>' + esc(m) + '<small>' + g.qty + ' ც' + (g.area ? ' · ' + g.area.toFixed(2) + ' მ²' : '') + (g.len ? ' · ' + g.len.toFixed(2) + ' მ' : '') + '</small></h4>' +
+      '<table><thead><tr><th>ზომა, მმ</th><th>რაოდ.</th><th>წიბო</th><th>დასახელება</th></tr></thead><tbody>';
+    Object.keys(g.rows).sort(function (a, b) { return g.rows[b].dims[0] * g.rows[b].dims[1] - g.rows[a].dims[0] * g.rows[a].dims[1]; }).forEach(function (k) {
+      var r = g.rows[k];
+      h += '<tr data-k="' + esc(k) + '"><td class="n">' + dimText(r.dims) + '</td><td class="n">' + r.nodes.length + '</td><td class="n">' + (r.bands ? r.bands + ' მხ.' : '—') + '</td><td>' + esc(Object.keys(r.names).join(', ')) + '</td></tr>';
+    });
+    h += '</tbody></table>';
+  });
+  h += '<p class="names" style="margin-top:12px">სტრიქონზე დაჭერით ეს დეტალები მოდელზე მოინიშნება.</p></div>';
+  $('dbody').innerHTML = h;
+}
+function markList() { $('dbody').querySelectorAll('.row').forEach(function (r) { r.classList.toggle('sel', isChosen(S.nodes[+r.dataset.i])); }); }
 $('dbody').addEventListener('click', function (e) {
   var b = e.target.closest('[data-blk]');
-  if (b) { var k = +b.dataset.blk; S.hidden[k] = !S.hidden[k]; if (S.sel && hiddenByBlock(S.sel)) S.sel = null; applyLook(); renderList(); renderSheet(); return; }
-  var s = e.target.closest('[data-show]');
-  if (s) { delete S.hidden['p' + s.dataset.show]; applyLook(); renderList(); return; }
+  if (b) { var k = +b.dataset.blk; S.hidden[k] = !S.hidden[k]; S.chosen = S.chosen.filter(function (n) { return !isHidden(n); }); S.sel = S.chosen.length === 1 ? S.chosen[0] : null; applyLook(); renderList(); renderSheet(); return; }
+  var t = e.target.closest('[data-tog]');
+  if (t) {
+    var tn = S.nodes[+t.dataset.tog], key = 'p' + tn.idx;
+    if (isHidden(tn)) { delete S.hidden[key]; if (S.iso) S.iso[tn.idx] = true; } else S.hidden[key] = true;
+    applyLook(); renderList(); return;
+  }
+  var gs = e.target.closest('[data-gsel]');
+  if (gs) { var g = S.nodes[+gs.dataset.gsel]; chooseMany(descParts(g).filter(function (n) { return !isHidden(n); }), true); if (innerWidth < 760) openDrawer(false); return; }
+  var tr = e.target.closest('tr[data-k]');
+  if (tr) { var list = cutGroups[tr.dataset.k] || []; list.forEach(function (n) { delete S.hidden['p' + n.idx]; if (S.iso) S.iso[n.idx] = true; }); if (list.length === 1) select(list[0], true); else chooseMany(list, true); if (innerWidth < 760) openDrawer(false); return; }
   var r = e.target.closest('.row');
-  if (r) { var n = S.nodes[+r.dataset.i]; if (hiddenByBlock(n)) { delete S.hidden['p' + n.idx]; } select(n, true); if (innerWidth < 760) openDrawer(false); }
+  if (r) {
+    var n = S.nodes[+r.dataset.i];
+    if (isHidden(n)) { delete S.hidden['p' + n.idx]; if (S.iso) S.iso[n.idx] = true; }
+    if (S.multi) { toggleChosen(n); renderList(); return; }
+    select(n, true); if (innerWidth < 760) openDrawer(false);
+  }
 });
 $('q').addEventListener('input', renderList);
-function setTab(t) { tab = t; $('tParts').setAttribute('aria-pressed', t === 'parts'); $('tMats').setAttribute('aria-pressed', t === 'mats'); renderList(); }
+function setTab(t) { tab = t; ['tParts', 'tCut', 'tMats'].forEach(function (id) { $(id).setAttribute('aria-pressed', ({ tParts: 'parts', tCut: 'cut', tMats: 'mats' })[id] === t); }); renderList(); }
 $('tParts').onclick = function () { setTab('parts'); };
+$('tCut').onclick = function () { setTab('cut'); };
 $('tMats').onclick = function () { setTab('mats'); };
-function openDrawer(o) { $('drawer').classList.toggle('open', o); $('scrim').hidden = !o; }
+function openDrawer(o) { $('drawer').classList.toggle('open', o); $('scrim').hidden = !o; if (o) renderList(); }
 $('bList').onclick = function () { openDrawer(true); };
 $('bClose').onclick = $('scrim').onclick = function () { openDrawer(false); };
 
@@ -684,13 +1027,22 @@ $('bClose').onclick = $('scrim').onclick = function () { openDrawer(false); };
 function closePops() { $('pViews').hidden = true; $('pExplode').hidden = true; }
 $('bViews').onclick = function () { var h = $('pViews').hidden; closePops(); $('pViews').hidden = !h; };
 $('bExplode').onclick = function () { var h = $('pExplode').hidden; closePops(); $('pExplode').hidden = !h; };
-$('bFit').onclick = function () { select(null); setView('iso'); };
+$('bFit').onclick = function () { setView('iso'); };
+$('bMulti').onclick = function () { setMulti(!S.multi); };
+$('bMeasure').onclick = function () { setMeasure(!M.on); };
 $('bRoom').onclick = function () { S.showRoom = !S.showRoom; this.setAttribute('aria-pressed', S.showRoom); applyLook(); };
+function press(sel, el) { $('pViews').querySelectorAll(sel).forEach(function (b) { b.setAttribute('aria-pressed', b === el); }); }
 $('pViews').addEventListener('click', function (e) {
   var v = e.target.closest('[data-view]'); if (v) setView(v.dataset.view);
+  var p = e.target.closest('[data-proj]'); if (p) { press('[data-proj]', p); setProj(p.dataset.proj); }
+  var d = e.target.closest('[data-disp]'); if (d) { press('[data-disp]', d); S.display = d.dataset.disp; applyLook(); }
   var c = e.target.closest('[data-color]');
-  if (c) { S.colorMode = c.dataset.color; $('pViews').querySelectorAll('[data-color]').forEach(function (b) { b.setAttribute('aria-pressed', b === c); }); applyLook(); renderList(); renderSheet(); }
+  if (c) { press('[data-color]', c); S.colorMode = c.dataset.color; applyLook(); renderList(); renderSheet(); }
+  var k = e.target.closest('[data-clip]');
+  if (k) { press('[data-clip]', k); S.clip = k.dataset.clip; $('rClip').disabled = $('bFlip').disabled = !S.clip; applyClip(); }
 });
+$('rClip').oninput = function () { S.clipT = this.value / 1000; applyClip(); };
+$('bFlip').onclick = function () { S.clipFlip = !S.clipFlip; applyClip(); };
 $('cEdges').onchange = function () { S.edges = this.checked; applyLook(); };
 $('rExplode').oninput = function () { S.explode = this.value / 100 * 0.9; applyExplode(); };
 function animExplode(to) {
@@ -706,21 +1058,6 @@ function toast(m, act, fn) {
   b.hidden = !act; if (act) { b.textContent = act; b.onclick = function () { t.hidden = true; fn(); }; }
   t.hidden = false; clearTimeout(tt); tt = setTimeout(function () { t.hidden = true; }, act ? 5000 : 3200);
 }
-function showAll() { S.hidden = {}; applyLook(); renderList(); toast('ყველა დეტალი ისევ ჩანს.'); }
-$('hchip').onclick = showAll;
-function updateHiddenChip() {
-  var parts = 0, blocks = 0;
-  Object.keys(S.hidden).forEach(function (k) { if (!S.hidden[k]) return; if (k.charAt(0) === 'p') parts++; else blocks++; });
-  var c = $('hchip');
-  if (!parts && !blocks) { c.hidden = true; return; }
-  var txt = [parts + blocks];
-  c.innerHTML = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>დამალულია ' + txt.join(', ') + ' · ყველას ჩვენება</span>';
-  c.hidden = false;
-}
-
-/* ---------- theme-aware background ---------- */
-function syncBg() { needs = true; }
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncBg);
 
 /* ---------- loading ---------- */
 function openBytes(bytes, name) {
@@ -730,6 +1067,8 @@ function openBytes(bytes, name) {
     var cnt = nodes.filter(function (n) { return (n.type === 4002 || n.type === 2004 || n.type === 999) && !isRoom(n); }).length;
     $('fmeta').textContent = cnt + ' დეტალი · ' + nodes.filter(function (n) { return n.type === 1005 || n.type === 4001; }).length + ' ბლოკი';
     S.explode = 0; $('rExplode').value = 0;
+    if (M.on) setMeasure(false); clearMeasure();
+    if (S.multi) setMulti(false);
     build(nodes);
   } catch (e) {
     console.error(e);
@@ -755,14 +1094,16 @@ window.openB64 = function (b64, name) { openDrawer(false); closePops(); openByte
 window.goBack = function () {
   if ($('drawer').classList.contains('open')) { openDrawer(false); return true; }
   if (!$('pViews').hidden || !$('pExplode').hidden) { closePops(); return true; }
-  if (S.sel) { select(null); return true; }
+  if (M.on) { setMeasure(false); return true; }
+  if (S.multi) { S.chosen = []; setMulti(false); return true; }
+  if (S.chosen.length) { select(null); return true; }
   return false;
 };
-(function () {
-  var bin = atob(SAMPLE_B64), u = new Uint8Array(bin.length);
-  for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-  openBytes(u, SAMPLE_NAME);
-})();
+
+window.addEventListener('resize', resize);
+resize();
+loop();
+openBytes(b64bytes(SAMPLE_B64), SAMPLE_NAME);
 </script>
 
 </body>
