@@ -48,7 +48,25 @@ button{font:inherit;color:inherit}
 .chk{display:flex;align-items:center;gap:8px;font-size:13.5px}
 .chk input{accent-color:var(--accent);width:18px;height:18px}
 input[type=range]{width:100%;accent-color:var(--accent)}
-.sheet{position:absolute;left:12px;right:12px;bottom:12px;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px;display:grid;gap:8px;max-height:46%;overflow:auto}
+.sheet{position:absolute;left:12px;top:62px;width:min(300px,calc(100% - 92px));z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);max-height:calc(100% - 140px);overflow:auto}
+#sheetBody{padding:9px 34px 10px 11px;display:grid;gap:6px}
+.sheet.mini #sheetBody>*:not(.ptitle):not(.dims){display:none}
+.sheet.mini{max-height:none}
+#sheetMin{position:absolute;top:4px;right:4px;width:28px;height:28px;border:0;background:none;border-radius:7px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center}
+#sheetMin:hover{background:var(--bg)}
+#sheetMin svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.sheet .hint{font-size:12.5px}
+.sheet .ptitle h2{font-size:14.5px}
+.sheet .dims{font-size:15.5px}
+.sheet .dims small{font-size:11px}
+.sheet .kv{font-size:12px;gap:3px 10px}
+.sheet .crumb{font-size:12px}
+.sheet .names{font-size:12px}
+.sheet .acts{gap:5px}
+.sheet .acts .btn{min-height:30px;font-size:12px;padding:0 9px;border-radius:8px}
+.sheet .seg .btn{min-height:32px;font-size:12px}
+.sheet .mgrid{font-size:12px;gap:4px}
+.sheet .mgrid span{padding:4px 6px}
 .sheet .hint{color:var(--muted);font-size:14px}
 .ptitle{display:flex;gap:10px;align-items:flex-start}
 .ptitle h2{margin:0;font-size:17px;line-height:1.3;flex:1;min-width:0;text-wrap:balance}
@@ -100,17 +118,17 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .cut tr[data-k]{cursor:pointer}
 .cut tr[data-k]:hover td{background:var(--bg)}
 .scrim{position:absolute;inset:0;background:rgba(10,16,24,.35);z-index:7}
-.toast{position:absolute;left:50%;top:150px;transform:translateX(-50%);z-index:9;background:var(--ink);color:var(--surface);padding:8px 8px 8px 14px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px}
+.toast{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);z-index:9;background:var(--ink);color:var(--surface);padding:8px 8px 8px 14px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px}
 .toast button{border:0;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;white-space:nowrap}
-.hchip{position:absolute;top:64px;left:12px;z-index:4;background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;min-height:42px;padding:0 14px;font-weight:600;font-size:14px;box-shadow:var(--shadow);cursor:pointer;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 92px)}
+.hchip{position:absolute;bottom:12px;left:12px;z-index:4;background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;min-height:42px;padding:0 14px;font-weight:600;font-size:14px;box-shadow:var(--shadow);cursor:pointer;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 92px)}
 .hchip svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;flex:none}
-.mode{position:absolute;top:112px;left:12px;z-index:4;background:var(--ink);color:var(--surface);border-radius:8px;padding:6px 10px;font-size:12.5px;pointer-events:none;max-width:calc(100% - 92px)}
+.mode{position:absolute;bottom:62px;left:12px;z-index:4;background:var(--ink);color:var(--surface);border-radius:8px;padding:6px 10px;font-size:12.5px;pointer-events:none;max-width:calc(100% - 92px)}
 .mlabel{position:absolute;z-index:3;transform:translate(-50%,-50%);background:var(--accent);color:var(--accent-ink);font-family:var(--f-data);font-size:14px;font-weight:500;padding:3px 7px;border-radius:7px;pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums;box-shadow:var(--shadow)}
 .mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-family:var(--f-data);font-size:13px;font-variant-numeric:tabular-nums}
 .mgrid span{background:var(--bg);border-radius:7px;padding:6px 8px;text-align:center;min-width:0}
 .mgrid b{display:block;font-family:var(--f-body);font-weight:500;color:var(--muted);font-size:11.5px}
 .drop{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(194,65,12,.15);border:3px dashed var(--accent);font-size:18px;font-weight:600}
-@media (min-width:760px){.sheet{left:auto;width:400px;right:70px}}
+
 @media (prefers-reduced-motion:reduce){.drawer{transition:none}}
 </style>
 
@@ -181,7 +199,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <div class="seg"><button class="btn" id="bExp0">აწყობილი</button><button class="btn" id="bExp1">დაშლილი</button></div>
   </div>
 
-  <div class="sheet" id="sheet"></div>
+  <div class="sheet" id="sheet"><div id="sheetBody"></div><button id="sheetMin" aria-label="ჩაკეცვა" title="ჩაკეცვა"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button></div>
 
   <div class="scrim" id="scrim" hidden></div>
   <aside class="drawer" id="drawer" aria-label="დეტალების სია">
@@ -815,7 +833,7 @@ function placeLabels() {
   });
 }
 function renderMeasureSheet() {
-  var el = $('sheet'), last = M.list[M.list.length - 1];
+  var el = $('sheetBody'), last = M.list[M.list.length - 1];
   var h = '<div class="ptitle"><h2>გაზომვა</h2></div>' +
     '<div class="seg"><button class="btn" id="mPt" aria-pressed="' + (M.mode === 'pt') + '">წერტილიდან წერტილამდე</button><button class="btn" id="mFace" aria-pressed="' + (M.mode === 'face') + '">ზედაპირებს შორის</button></div>';
   if (M.pend) h += '<div class="hint">ახლა შეეხე ' + (M.mode === 'face' ? 'მეორე ზედაპირს.' : 'მეორე წერტილს.') + '</div>';
@@ -849,7 +867,7 @@ function setMeasure(on) {
 /* ---------- sheet ---------- */
 function blockBtn(n) { return n.parent ? '<button class="btn" id="aBlock">მთელი ბლოკის მონიშვნა</button>' : ''; }
 function renderSheet() {
-  var el = $('sheet');
+  var el = $('sheetBody');
   if (M.on) { renderMeasureSheet(); return; }
   if (S.chosen.length > 1 || (S.multi && S.chosen.length !== 1)) { renderMultiSheet(); return; }
   var n = S.chosen[0];
@@ -888,7 +906,7 @@ function groupOf(list) {
   return null;
 }
 function renderMultiSheet() {
-  var el = $('sheet'), L = S.chosen, g = groupOf(L);
+  var el = $('sheetBody'), L = S.chosen, g = groupOf(L);
   var b = new THREE.Box3(); L.forEach(function (n) { if (n.mesh) b.expandByObject(n.mesh, true); });
   var sz = b.isEmpty() ? null : b.getSize(new THREE.Vector3());
   var names = {}; L.forEach(function (n) { var k = niceName(n); names[k] = (names[k] || 0) + 1; });
@@ -910,6 +928,12 @@ function renderMultiSheet() {
   }
   $('aEndM').onclick = function () { S.chosen = []; S.sel = null; setMulti(false); };
 }
+
+var MINI_PLUS = '<svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg>', MINI_MINUS = '<svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg>';
+$('sheetMin').onclick = function () {
+  var m = $('sheet').classList.toggle('mini');
+  this.innerHTML = m ? MINI_PLUS : MINI_MINUS; this.setAttribute('aria-label', m ? 'გაშლა' : 'ჩაკეცვა');
+};
 
 /* ---------- drawer ---------- */
 var tab = 'parts';
