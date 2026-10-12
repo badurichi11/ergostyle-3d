@@ -80,7 +80,10 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .mrow .nm{flex:1;min-width:0;font-size:13.5px}
 .mrow .ct{font-family:var(--f-data);font-size:12px;color:var(--muted)}
 .scrim{position:absolute;inset:0;background:rgba(10,16,24,.35);z-index:7}
-.toast{position:absolute;left:50%;top:64px;transform:translateX(-50%);z-index:9;background:var(--ink);color:var(--surface);padding:10px 14px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px)}
+.toast{position:absolute;left:50%;top:116px;transform:translateX(-50%);z-index:9;background:var(--ink);color:var(--surface);padding:8px 8px 8px 14px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px}
+.toast button{border:0;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.hchip{position:absolute;top:64px;left:12px;z-index:4;background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;min-height:42px;padding:0 14px;font-weight:600;font-size:14px;box-shadow:var(--shadow);cursor:pointer;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 92px)}
+.hchip svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8}
 .drop{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(194,65,12,.15);border:3px dashed var(--accent);font-size:18px;font-weight:600}
 @media (min-width:760px){.sheet{left:auto;width:380px;right:70px}}
 @media (prefers-reduced-motion:reduce){.drawer{transition:none}}
@@ -138,7 +141,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <div class="tabs"><button class="btn" id="tParts" aria-pressed="true">დეტალები</button><button class="btn" id="tMats" aria-pressed="false">მასალები</button></div>
     <div class="dbody" id="dbody"></div>
   </aside>
-  <div class="toast" id="toast" hidden></div>
+  <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastAct" hidden></button></div>
+  <button class="hchip" id="hchip" hidden></button>
   <div class="drop" id="drop" hidden>გადმოაგდე .b3d ფაილი</div>
 </div>
 
@@ -520,6 +524,7 @@ function applyLook() {
     e.material = n === sel ? edgeSel : edgeMat;
   });
   edgeMat.opacity = sel ? 0.18 : 0.55;
+  updateHiddenChip();
   needs = true;
 }
 function applyExplode() {
@@ -608,7 +613,7 @@ function renderSheet() {
     var p = n.parent, b = new THREE.Box3(); p.obj && b.setFromObject(p.obj);
     if (!b.isEmpty()) { var c = b.getCenter(new THREE.Vector3()), r = b.getSize(new THREE.Vector3()).length(); var dir = camera.position.clone().sub(controls.target).normalize(); flyTo(c, c.clone().add(dir.multiplyScalar(r * 1.5 + 200))); }
   };
-  $('aHide').onclick = function () { S.hidden['p' + n.idx] = true; select(null); renderList(); toast('დეტალი დაიმალა. სიიდან დააბრუნებ.'); };
+  $('aHide').onclick = function () { var k = 'p' + n.idx; S.hidden[k] = true; select(null); renderList(); toast('დეტალი დაიმალა.', 'დაბრუნება', function () { delete S.hidden[k]; applyLook(); renderList(); }); };
   $('aDone').onclick = function () { select(null); };
 }
 
@@ -696,7 +701,22 @@ $('bExp0').onclick = function () { animExplode(0); };
 $('bExp1').onclick = function () { animExplode(0.5); };
 
 var tt;
-function toast(m) { var t = $('toast'); t.textContent = m; t.hidden = false; clearTimeout(tt); tt = setTimeout(function () { t.hidden = true; }, 3200); }
+function toast(m, act, fn) {
+  var t = $('toast'), b = $('toastAct'); $('toastMsg').textContent = m;
+  b.hidden = !act; if (act) { b.textContent = act; b.onclick = function () { t.hidden = true; fn(); }; }
+  t.hidden = false; clearTimeout(tt); tt = setTimeout(function () { t.hidden = true; }, act ? 5000 : 3200);
+}
+function showAll() { S.hidden = {}; applyLook(); renderList(); toast('ყველა დეტალი ისევ ჩანს.'); }
+$('hchip').onclick = showAll;
+function updateHiddenChip() {
+  var parts = 0, blocks = 0;
+  Object.keys(S.hidden).forEach(function (k) { if (!S.hidden[k]) return; if (k.charAt(0) === 'p') parts++; else blocks++; });
+  var c = $('hchip');
+  if (!parts && !blocks) { c.hidden = true; return; }
+  var txt = [parts + blocks];
+  c.innerHTML = '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>დამალულია ' + txt.join(', ') + ' · ყველას ჩვენება</span>';
+  c.hidden = false;
+}
 
 /* ---------- theme-aware background ---------- */
 function syncBg() { needs = true; }
