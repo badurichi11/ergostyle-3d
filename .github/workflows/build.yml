@@ -18,9 +18,12 @@ jobs:
           gradle-version: '8.7'
       - name: Build
         run: gradle :app:assembleDebug --no-daemon
-      - name: Rename
-        run: cp app/build/outputs/apk/debug/app-debug.apk Ergostyle-3D.apk
+      - name: Rename with version
+        run: |
+          V=$(grep -oP "versionName '\K[^']+" app/build.gradle)
+          echo "V=$V" >> "$GITHUB_ENV"
+          cp app/build/outputs/apk/debug/app-debug.apk "Ergostyle-3D-v$V.apk"
       - uses: actions/upload-artifact@v4
         with:
-          name: Ergostyle-3D-apk
-          path: Ergostyle-3D.apk
+          name: Ergostyle-3D-v${{ env.V }}
+          path: Ergostyle-3D-v${{ env.V }}.apk

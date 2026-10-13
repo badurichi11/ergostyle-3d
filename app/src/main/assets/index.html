@@ -115,6 +115,35 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .mrow input[type=color]{width:34px;height:30px;border:1px solid var(--line);border-radius:7px;padding:0;background:none;flex:none}
 .mrow .nm{flex:1;min-width:0;font-size:13.5px}
 .mrow .ct{font-family:var(--f-data);font-size:12px;color:var(--muted)}
+.blk{border-bottom:1px solid var(--line)}
+.bhead{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;cursor:pointer;text-align:left;padding:10px 12px;min-width:0}
+.bhead:hover{background:var(--bg)}
+.bhead .bn{flex:1;min-width:0;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bhead .bc{font-family:var(--f-data);font-size:12px;color:var(--muted);white-space:nowrap}
+.bhead .chev{width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2;flex:none;transition:transform .15s}
+.blk.open .chev{transform:rotate(90deg)}
+.blk.open .bhead{background:var(--accent-soft)}
+.bbox{margin:0 12px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:8px 10px;display:grid;gap:2px}
+.bsize{font-family:var(--f-data);font-size:12px;color:var(--muted);padding-bottom:4px}
+.bpart{display:grid;grid-template-columns:1fr auto;gap:0 8px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.bpart:first-of-type{border-top:0}
+.bpart .pn{font-weight:500;min-width:0;overflow-wrap:anywhere}
+.bpart .pq{font-family:var(--f-data);font-size:12.5px;text-align:right;white-space:nowrap}
+.bpart .pd{grid-column:1/-1;font-family:var(--f-data);font-size:12px;color:var(--ink)}
+.bpart .pm{grid-column:1/-1;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.btab{overflow-x:auto;margin:2px -4px 0;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.btab table{border-collapse:collapse;width:100%;font-size:12px}
+.btab td .pn{display:block;font-weight:500}
+.btab td .pm{display:block;color:var(--muted);font-size:11px;margin-top:1px}
+.btab th:nth-child(n+2){width:1%}
+.btab th{font-weight:500;color:var(--accent);font-size:10.5px;padding:4px 4px;border:1px solid var(--line);text-align:left;white-space:nowrap;background:var(--accent-soft)}
+.btab th.c{text-align:center}
+.btab td{padding:5px 4px;border:1px solid var(--line);vertical-align:top}
+.btab td.n{font-family:var(--f-data);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;font-size:11.5px}
+.btab td.m{color:var(--muted);font-size:11px;max-width:70px;overflow-wrap:anywhere}
+.bsub{font-size:11.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;padding:8px 0 2px}
+.bbox .btn{box-shadow:none;min-height:34px;font-size:13px;margin-top:6px}
+@media (prefers-reduced-motion:reduce){.bhead .chev{transition:none}}
 .cut{padding:4px 12px 12px;overflow-x:auto}
 .cut h4{margin:14px 0 6px;font-size:13.5px;font-weight:600;display:flex;gap:8px;align-items:baseline}
 .cut h4 small{font-weight:400;color:var(--muted);font-family:var(--f-data);font-size:12px}
@@ -216,6 +245,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     </div>
     <div class="tabs">
       <button class="btn" id="tParts" aria-pressed="true">დეტალები</button>
+      <button class="btn" id="tBlocks" aria-pressed="false">ბლოკები</button>
       <button class="btn" id="tCut" aria-pressed="false">ჭრის სია</button>
       <button class="btn" id="tMats" aria-pressed="false">მასალები</button>
     </div>
@@ -368,6 +398,11 @@ var B3D = (function () {
           segs: contour(get(o, 'Contour')),
           butts: [], children: []
         };
+        node.cuts = [];
+        var ct = get(o, 'Cuts');
+        if (Array.isArray(ct)) for (var c2 = 0; c2 < ct.length; c2++) {
+          if (Array.isArray(ct[c2][1])) node.cuts.push({ name: fixName(get(ct[c2][1], 'Name')) || '', sign: fixName(get(ct[c2][1], 'Sign')) || '' });
+        }
         var bt = get(o, 'Butts');
         if (Array.isArray(bt)) for (var j = 0; j < bt.length; j++) {
           if (Array.isArray(bt[j][1])) node.butts.push({ mat: fixName(get(bt[j][1], 'Mat')) || '', elem: get(bt[j][1], 'Elem'), sign: get(bt[j][1], 'Sign') || '' });
@@ -582,7 +617,7 @@ function clearModel() {
 }
 
 function build(nodes) {
-  clearModel(); S.nodes = nodes;
+  clearModel(); S.nodes = nodes; openBlk = null;
   var objFor = {};
   nodes.forEach(function (n) {
     var parentObj = n.parent ? objFor[n.parent.idx] : root;
@@ -1009,6 +1044,7 @@ function renderList() {
   var q = ($('q').value || '').trim().toLowerCase(), h = '';
   if (tab === 'mats') return renderMats(q);
   if (tab === 'cut') return renderCut(q);
+  if (tab === 'blocks') return renderBlocks(q);
   function rows(list) {
     var out = '';
     list.forEach(function (n) {
@@ -1084,6 +1120,50 @@ function renderCut(q) {
   h += '<p class="names" style="margin-top:12px">სტრიქონზე დაჭერით ეს დეტალები მოდელზე მოინიშნება.</p></div>';
   $('dbody').innerHTML = h;
 }
+var openBlk = null;
+var CHEV = '<svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
+function blockName(g) { return (g.name || '').trim() || niceName(g); }
+function cutText(n) {
+  if (!n.cuts || !n.cuts.length) return '';
+  var u = {}; n.cuts.forEach(function (c) { var t = (c.sign || c.name || 'პაზი').trim(); u[t] = (u[t] || 0) + 1; });
+  return Object.keys(u).map(function (k) { return k + (u[k] > 1 ? ' ×' + u[k] : ''); }).join(', ');
+}
+function partRows(list) {
+  var rows = {}, order = [];
+  list.forEach(function (n) {
+    var k = niceName(n) + '|' + dimText(n.dims) + '|' + n.mat + '|' + cutText(n);
+    if (!rows[k]) { rows[k] = { n: n, q: 0 }; order.push(k); }
+    rows[k].q++;
+  });
+  if (!order.length) return '';
+  return '<div class="btab"><table><thead><tr><th rowspan="2">დეტალი / მასალა</th><th rowspan="2">რ-ბა</th><th colspan="3" class="c">მზა დეტალი, მმ</th><th rowspan="2">პაზი</th></tr>' +
+    '<tr><th>სიგრძე</th><th>სიგანე</th><th>სისქე</th></tr></thead><tbody>' +
+    order.map(function (k) {
+      var r = rows[k], n = r.n, d = n.dims || [];
+      return '<tr><td><b class="pn">' + esc(niceName(n)) + '</b><span class="pm">' + esc(n.mat || '—') + '</span></td><td class="n">' + r.q + '</td>' +
+        '<td class="n">' + (d[0] != null ? num(d[0]) : '—') + '</td><td class="n">' + (d[1] != null ? num(d[1]) : '—') + '</td><td class="n">' + (d[2] != null ? num(d[2]) : '—') + '</td>' +
+        '<td class="m">' + esc(cutText(n)) + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+}
+function renderBlocks(q) {
+  var h = '', groups = S.nodes.filter(function (n) { return n.obj && n.children.length && descParts(n).length; });
+  groups.forEach(function (g) {
+    var nm = blockName(g);
+    if (q && nm.toLowerCase().indexOf(q) < 0) return;
+    var depth = pathOf(g).length, parts = descParts(g), open = openBlk === g.idx;
+    h += '<div class="blk' + (open ? ' open' : '') + '"><button class="bhead" data-bopen="' + g.idx + '" style="padding-left:' + (12 + depth * 14) + 'px" aria-expanded="' + open + '">' + CHEV +
+      '<span class="bn">' + esc(nm) + '</span><span class="bc">' + parts.length + ' დეტ.</span></button>';
+    if (open) {
+      var own = g.children.filter(function (c) { return c.mesh; });
+      var subs = g.children.filter(function (c) { return c.obj && c.children.length && descParts(c).length; });
+      h += '<div class="bbox">' + (g.size ? '<div class="bsize">გაბარიტი: ' + sizeText(g.size) + ' მმ</div>' : '') + partRows(own);
+      subs.forEach(function (sb) { h += '<div class="bsub">' + esc(blockName(sb)) + '</div>' + partRows(descParts(sb)); });
+      h += '<button class="btn" data-bshow="' + g.idx + '">მოდელზე ჩვენება</button></div>';
+    }
+    h += '</div>';
+  });
+  $('dbody').innerHTML = h || '<div class="mrow" style="color:var(--muted)">' + (q ? 'ვერაფერი მოიძებნა.' : 'ამ ფაილში ბლოკები არ არის.') + '</div>';
+}
 function markList() { $('dbody').querySelectorAll('.row').forEach(function (r) { r.classList.toggle('sel', isChosen(S.nodes[+r.dataset.i])); }); }
 $('dbody').addEventListener('click', function (e) {
   var b = e.target.closest('[data-blk]');
@@ -1094,6 +1174,14 @@ $('dbody').addEventListener('click', function (e) {
     if (isHidden(tn)) { delete S.hidden[key]; if (S.iso) S.iso[tn.idx] = true; } else S.hidden[key] = true;
     applyLook(); renderList(); return;
   }
+  var bo = e.target.closest('[data-bopen]');
+  if (bo) {
+    var bi = +bo.dataset.bopen; openBlk = openBlk === bi ? null : bi; renderList();
+    if (openBlk !== null) { chooseMany(descParts(S.nodes[bi]).filter(function (n) { return !isHidden(n); }), false); var el = $('dbody').querySelector('[data-bopen="' + bi + '"]'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+    return;
+  }
+  var bs = e.target.closest('[data-bshow]');
+  if (bs) { var bg = S.nodes[+bs.dataset.bshow]; descParts(bg).forEach(function (n) { delete S.hidden['p' + n.idx]; if (S.iso) S.iso[n.idx] = true; }); chooseMany(descParts(bg), true); openDrawer(false); return; }
   var gs = e.target.closest('[data-gsel]');
   if (gs) { var g = S.nodes[+gs.dataset.gsel]; chooseMany(descParts(g).filter(function (n) { return !isHidden(n); }), true); if (innerWidth < 760) openDrawer(false); return; }
   var tr = e.target.closest('tr[data-k]');
@@ -1106,7 +1194,8 @@ $('dbody').addEventListener('click', function (e) {
   }
 });
 $('q').addEventListener('input', renderList);
-function setTab(t) { tab = t; ['tParts', 'tCut', 'tMats'].forEach(function (id) { $(id).setAttribute('aria-pressed', ({ tParts: 'parts', tCut: 'cut', tMats: 'mats' })[id] === t); }); renderList(); }
+function setTab(t) { tab = t; ['tParts', 'tBlocks', 'tCut', 'tMats'].forEach(function (id) { $(id).setAttribute('aria-pressed', ({ tParts: 'parts', tBlocks: 'blocks', tCut: 'cut', tMats: 'mats' })[id] === t); }); renderList(); }
+$('tBlocks').onclick = function () { setTab('blocks'); };
 $('tParts').onclick = function () { setTab('parts'); };
 $('tCut').onclick = function () { setTab('cut'); };
 $('tMats').onclick = function () { setTab('mats'); };
