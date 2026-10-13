@@ -49,9 +49,13 @@ jobs:
           cp desktop/icons/icon.png desktop/app/icon.png
       - name: Build Windows app
         working-directory: desktop
+        shell: bash
         run: |
-          npm install --no-audit --no-fund
-          npx electron-builder --win --publish never
+          report() { msg=$(tail -45 "$1" | sed -e 's/%/%25/g' -e 's/\r//g' | sed ':a;N;$!ba;s/\n/%0A/g'); echo "::error title=$2::$msg"; }
+          npm install --no-audit --no-fund > ../npm.log 2>&1 || { report ../npm.log npm; exit 1; }
+          npx electron-builder --win --publish never > ../eb.log 2>&1 || { report ../eb.log electron-builder; exit 1; }
+          tail -15 ../eb.log
+          ls -la dist
       - uses: actions/upload-artifact@v4
         with:
           name: Ergostyle-3D-Windows-v${{ env.V }}
