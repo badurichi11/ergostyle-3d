@@ -123,23 +123,25 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .chk2[aria-checked="true"] span{background:var(--accent);border-color:var(--accent)}
 .chk2[aria-checked="true"] span::after{content:"";width:9px;height:5px;border-left:2.2px solid var(--accent-ink);border-bottom:2.2px solid var(--accent-ink);transform:rotate(-45deg) translate(1px,-1px)}
 .blk.done .bn{color:var(--muted)}
-.ipanel{position:absolute;left:12px;bottom:62px;z-index:5;width:min(330px,calc(100% - 92px));max-height:42%;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
-.iphead{display:flex;align-items:center;gap:8px;padding:8px 6px 8px 12px;border-bottom:1px solid var(--line)}
-.iphead b{font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ipanel{position:absolute;left:12px;bottom:62px;z-index:5;width:min(240px,calc(100% - 92px));max-height:34%;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.iphead{display:flex;align-items:center;gap:6px;padding:5px 4px 5px 10px;border-bottom:1px solid var(--line)}
+.iphead b{font-size:12.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .iphead span{font-family:var(--f-data);font-size:11.5px;color:var(--muted);white-space:nowrap}
 .iphead button{width:28px;height:28px;border:0;background:none;border-radius:7px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center}
 .iphead button svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
 .ipanel.mini #ipBody{display:none}
 .ipanel.mini .iphead{border-bottom:0}
 #ipBody{overflow:auto;padding:2px 0 6px}
-.iprow{display:flex;align-items:flex-start;gap:2px;padding:0 10px 0 0;border-bottom:1px solid var(--line)}
+.iprow{display:flex;align-items:flex-start;gap:0;padding:0 8px 0 0;border-bottom:1px solid var(--line)}
 .iprow:last-child{border-bottom:0}
-.iprow .chk2{width:40px;height:40px}
-.iprow .ipt{flex:1;min-width:0;padding:6px 0;display:grid;gap:1px}
-.iprow .ipn{font-size:13px;font-weight:500;display:flex;gap:6px;justify-content:space-between}
-.iprow .ipn i{font-style:normal;font-family:var(--f-data);font-size:12px;color:var(--ink);white-space:nowrap}
-.iprow .ipd{font-family:var(--f-data);font-size:11.5px}
-.iprow .ipm{font-size:11.5px;color:var(--muted);overflow-wrap:anywhere}
+.iprow .chk2{width:32px;height:32px}
+.iprow .chk2 span{width:16px;height:16px;border-radius:4px}
+.iprow .chk2[aria-checked="true"] span::after{width:7px;height:4px}
+.iprow .ipt{flex:1;min-width:0;padding:4px 0;display:grid;gap:0}
+.iprow .ipn{font-size:11.5px;font-weight:500;display:flex;gap:6px;justify-content:space-between}
+.iprow .ipn i{font-style:normal;font-family:var(--f-data);font-size:11px;color:var(--ink);white-space:nowrap}
+.iprow .ipd{font-family:var(--f-data);font-size:10.5px}
+.iprow .ipm{font-size:10.5px;color:var(--muted);overflow-wrap:anywhere}
 .iprow.done .ipn,.iprow.done .ipd{color:var(--muted);text-decoration:line-through}
 .bhead{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;cursor:pointer;text-align:left;padding:10px 12px;min-width:0}
 .bhead:hover{background:var(--bg)}
@@ -147,6 +149,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .bhead .bc{font-family:var(--f-data);font-size:12px;color:var(--muted);white-space:nowrap}
 .bhead .chev{width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2;flex:none;transition:transform .15s}
 .blk.open .chev{transform:rotate(90deg)}
+.bexp .chev{width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:2;transition:transform .15s}
+.bline .bhead{padding-right:4px}
 .blk.open .bhead{background:var(--accent-soft)}
 .bbox{margin:0 12px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:8px 10px;display:grid;gap:2px}
 .bsize{font-family:var(--f-data);font-size:12px;color:var(--muted);padding-bottom:4px}
@@ -1181,14 +1185,14 @@ function renderBlocks(q) {
     var depth = pathOf(g).length, parts = descParts(g), open = openBlk === g.idx;
     var bon = !!marks.b[g.id];
     h += '<div class="blk' + (open ? ' open' : '') + (bon ? ' done' : '') + '"><div class="bline" style="padding-left:' + (depth * 14) + 'px">' + chk('data-bchk="' + g.id + '"', bon, nm) +
-      '<button class="bhead" data-bopen="' + g.idx + '" style="padding-left:0" aria-expanded="' + open + '">' + CHEV +
-      '<span class="bn">' + esc(nm) + '</span><span class="bc">' + parts.length + ' დეტ.</span></button></div>';
+      '<button class="bhead" data-bshow="' + g.idx + '" style="padding-left:0"><span class="bn">' + esc(nm) + '</span><span class="bc">' + parts.length + ' დეტ.</span></button>' +
+      '<button class="chk2 bexp" data-bopen="' + g.idx + '" aria-expanded="' + open + '" aria-label="ცხრილის ჩვენება">' + CHEV + '</button></div>';
     if (open) {
       var own = g.children.filter(function (c) { return c.mesh; });
       var subs = g.children.filter(function (c) { return c.obj && c.children.length && descParts(c).length; });
       h += '<div class="bbox">' + (g.size ? '<div class="bsize">გაბარიტი: ' + sizeText(g.size) + ' მმ</div>' : '') + partRows(own);
       subs.forEach(function (sb) { h += '<div class="bsub">' + esc(blockName(sb)) + '</div>' + partRows(descParts(sb)); });
-      h += '<button class="btn" data-bshow="' + g.idx + '">მოდელზე ჩვენება</button></div>';
+      h += '</div>';
     }
     h += '</div>';
   });
@@ -1250,7 +1254,7 @@ $('dbody').addEventListener('click', function (e) {
   var bo = e.target.closest('[data-bopen]');
   if (bo) {
     var bi = +bo.dataset.bopen; openBlk = openBlk === bi ? null : bi; renderList();
-    if (openBlk !== null) { chooseMany(descParts(S.nodes[bi]).filter(function (n) { return !isHidden(n); }), false); var el = $('dbody').querySelector('[data-bopen="' + bi + '"]'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+    if (openBlk !== null) { var el = $('dbody').querySelector('[data-bopen="' + bi + '"]'); if (el) el.scrollIntoView({ block: 'nearest' }); }
     return;
   }
   var bs = e.target.closest('[data-bshow]');
