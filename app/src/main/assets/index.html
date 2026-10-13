@@ -902,6 +902,8 @@ function runSearch() {
   else c.hidden = true;
   $('app').classList.toggle('has-search', !!S.hits);
   applyLook();
+  clearTimeout(runSearch.t);
+  if (cnt) runSearch.t = setTimeout(function () { focusNodes(S.parts.filter(function (n) { return S.hits && S.hits[n.idx]; })); }, 700);
 }
 function clearSearch() { $('q2').value = ''; $('q').value = ''; runSearch(); renderList(); }
 
@@ -1334,6 +1336,8 @@ $('sbarClose').onclick = function () { openSearchBar(false); };
 $('q2').addEventListener('input', function () { $('q').value = this.value; renderList(); runSearch(); });
 $('q2').addEventListener('keydown', function (e) { if (e.key === 'Enter') this.blur(); });
 $('q').addEventListener('input', function () { $('q2').value = this.value; });
+// searching from the list moves to the slim bar over the model, so the drawing stays visible
+$('q').addEventListener('focus', function () { this.blur(); openDrawer(false); openSearchBar(true); });
 function setTab(t) { tab = t; ['tParts', 'tBlocks', 'tCut', 'tMats'].forEach(function (id) { $(id).setAttribute('aria-pressed', ({ tParts: 'parts', tBlocks: 'blocks', tCut: 'cut', tMats: 'mats' })[id] === t); }); renderList(); }
 $('tBlocks').onclick = function () { setTab('blocks'); };
 $('tParts').onclick = function () { setTab('parts'); };
