@@ -186,6 +186,9 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .toast{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);z-index:9;background:var(--ink);color:var(--surface);padding:8px 8px 8px 14px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px}
 .toast button{border:0;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;white-space:nowrap}
 .hchip{position:absolute;bottom:12px;left:12px;z-index:4;background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;min-height:42px;padding:0 14px;font-weight:600;font-size:14px;box-shadow:var(--shadow);cursor:pointer;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 92px)}
+.schip{position:absolute;right:12px;bottom:12px;z-index:4;background:#1d6fd8;color:#fff;border:0;border-radius:10px;min-height:42px;padding:0 12px;font-weight:600;font-size:13.5px;box-shadow:var(--shadow);cursor:pointer;display:inline-flex;align-items:center;gap:6px;max-width:calc(50% - 18px)}
+.schip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#app.has-search .hchip{max-width:calc(50% - 18px)}
 .hchip svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;flex:none}
 .mode{position:absolute;bottom:62px;left:12px;z-index:4;background:var(--ink);color:var(--surface);border-radius:8px;padding:6px 10px;font-size:12.5px;pointer-events:none;max-width:calc(100% - 92px)}
 .mlabel{position:absolute;z-index:3;transform:translate(-50%,-50%);background:var(--accent);color:var(--accent-ink);font-family:var(--f-data);font-size:14px;font-weight:500;padding:3px 7px;border-radius:7px;pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums;box-shadow:var(--shadow)}
@@ -269,7 +272,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   <div class="scrim" id="scrim" hidden></div>
   <aside class="drawer" id="drawer" aria-label="დეტალების სია">
     <div class="dhead">
-      <input id="q" type="search" placeholder="ძებნა: გვერდი, თარო, ფასადი…" autocomplete="off">
+      <input id="q" type="search" placeholder="ძებნა: სახელი, მასალა ან ზომა (564x560)" autocomplete="off">
       <button class="btn" id="bClose" aria-label="დახურვა" style="box-shadow:none"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="tabs">
@@ -283,6 +286,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   <section class="ipanel" id="ipanel" hidden aria-label="დეტალების ჩამონათვალი"><div class="iphead"><b id="ipTitle"></b><span id="ipCount"></span><button id="ipMin" aria-label="ჩაკეცვა"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button></div><div id="ipBody"></div></section>
   <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastAct" hidden></button></div>
   <button class="hchip" id="hchip" hidden></button>
+  <button class="schip" id="schip" hidden></button>
   <div class="mode" id="modeTag" hidden></div>
   <div id="labels"></div>
   <div class="drop" id="drop" hidden>გადმოაგდე .b3d ფაილი</div>
@@ -647,7 +651,7 @@ function clearModel() {
 }
 
 function build(nodes) {
-  clearModel(); S.nodes = nodes; openBlk = null;
+  clearModel(); S.nodes = nodes; openBlk = null; $('q').value = ''; S.hits = null; $('schip').hidden = true; $('app').classList.remove('has-search');
   var objFor = {};
   nodes.forEach(function (n) {
     var parentObj = n.parent ? objFor[n.parent.idx] : root;
@@ -726,6 +730,9 @@ function applyLook() {
       if (ch) op = 1;
       else if (selBlock && n.parent === selBlock) op = Math.min(op, 0.5);
       else op = Math.min(op, n.room ? 0.06 : 0.14);
+    } else if (S.hits) {
+      if (S.hits[n.idx]) { op = 1; mat.color.set(SEARCH_COLOR); }
+      else op = Math.min(op, n.room ? 0.06 : 0.16);
     } else if (n.room) op = 0.55;
     if (xray && !ch) op = Math.min(op, n.room ? 0.08 : 0.25);
     mat.visible = !(wire && !ch);
@@ -852,6 +859,42 @@ function setMulti(on, keep) {
   if (!keep) { if (!on && S.chosen.length > 1) { S.chosen = []; S.sel = null; } }
   updateModeTag(); applyLook(); renderSheet(); renderList();
 }
+
+/* ---------- search (name, material or size) ---------- */
+var SEARCH_COLOR = '#1d6fd8';
+function parseQ(q) {
+  q = (q || '').trim().toLowerCase();
+  var nums = (q.match(/\d+(?:[.,]\d+)?/g) || []).map(function (x) { return parseFloat(x.replace(',', '.')); });
+  var text = q.replace(/\d+(?:[.,]\d+)?/g, ' ').replace(/[x×*хx\/,;-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return { q: q, nums: nums, text: text };
+}
+function matchQ(n, Q) {
+  if (!Q.q) return true;
+  if (Q.text && (niceName(n) + ' ' + n.mat + ' ' + (n.name || '')).toLowerCase().indexOf(Q.text) < 0) return false;
+  if (Q.nums.length) {
+    if (!n.dims) return false;
+    var pool = n.dims.slice();
+    for (var i = 0; i < Q.nums.length; i++) {
+      var j = -1;
+      for (var k = 0; k < pool.length; k++) if (Math.abs(pool[k] - Q.nums[i]) <= 1) { j = k; break; }
+      if (j < 0) return false;
+      pool.splice(j, 1);
+    }
+  }
+  return true;
+}
+S.hits = null;
+function runSearch() {
+  var Q = parseQ($('q').value);
+  if (!Q.q) S.hits = null;
+  else { S.hits = {}; S.parts.forEach(function (n) { if (!n.room && n.mesh && n.type !== 3001 && matchQ(n, Q)) S.hits[n.idx] = true; }); }
+  var c = $('schip'), cnt = S.hits ? Object.keys(S.hits).length : 0;
+  if (S.hits) { c.innerHTML = '<span>„' + esc($('q').value.trim()) + '“: ' + cnt + '</span> ✕'; c.hidden = false; c.setAttribute('aria-label', 'ძებნის გასუფთავება'); }
+  else c.hidden = true;
+  $('app').classList.toggle('has-search', !!S.hits);
+  applyLook();
+}
+function clearSearch() { $('q').value = ''; runSearch(); renderList(); }
 
 /* ---------- hide / isolate ---------- */
 function hideNodes(list) {
@@ -1082,7 +1125,7 @@ function renderList() {
     list.forEach(function (n) {
       if (!n.mesh) return;
       var nm = niceName(n);
-      if (q && (nm + ' ' + n.mat).toLowerCase().indexOf(q) < 0) return;
+      if (q && !matchQ(n, parseQ(q))) return;
       var off = isHidden(n);
       out += '<div style="display:flex;align-items:center"><button class="row' + (isChosen(n) ? ' sel' : '') + (off ? ' dim' : '') + '" data-i="' + n.idx + '">' +
         (S.multi ? '<span class="tick"></span>' : '<span class="sw" style="background:' + baseColor(n) + '"></span>') +
@@ -1124,7 +1167,7 @@ function renderCut(q) {
   var byMat = {}; cutGroups = {};
   S.parts.forEach(function (n) {
     if (n.room || !n.dims || n.type === 3001) return;
-    if (q && (niceName(n) + ' ' + n.mat).toLowerCase().indexOf(q) < 0) return;
+    if (q && !matchQ(n, parseQ(q))) return;
     var key = n.type + '|' + n.mat + '|' + n.dims.join('x');
     var mk = n.mat || '—';
     if (!byMat[mk]) byMat[mk] = { rows: {}, qty: 0, area: 0, len: 0, profile: n.type !== 4002 };
@@ -1181,7 +1224,7 @@ function renderBlocks(q) {
   var h = '', groups = S.nodes.filter(function (n) { return n.obj && n.children.length && descParts(n).length; });
   groups.forEach(function (g) {
     var nm = blockName(g);
-    if (q && nm.toLowerCase().indexOf(q) < 0) return;
+    if (q && nm.toLowerCase().indexOf(q) < 0 && !descParts(g).some(function (n) { return matchQ(n, parseQ(q)); })) return;
     var depth = pathOf(g).length, parts = descParts(g), open = openBlk === g.idx;
     var bon = !!marks.b[g.id];
     h += '<div class="blk' + (open ? ' open' : '') + (bon ? ' done' : '') + '"><div class="bline" style="padding-left:' + (depth * 14) + 'px">' + chk('data-bchk="' + g.id + '"', bon, nm) +
@@ -1270,7 +1313,8 @@ $('dbody').addEventListener('click', function (e) {
     toggleChosen(n); renderList(); if (S.chosen.length === 1) focusNodes([n]);
   }
 });
-$('q').addEventListener('input', renderList);
+$('q').addEventListener('input', function () { renderList(); runSearch(); });
+$('schip').onclick = clearSearch;
 function setTab(t) { tab = t; ['tParts', 'tBlocks', 'tCut', 'tMats'].forEach(function (id) { $(id).setAttribute('aria-pressed', ({ tParts: 'parts', tBlocks: 'blocks', tCut: 'cut', tMats: 'mats' })[id] === t); }); renderList(); }
 $('tBlocks').onclick = function () { setTab('blocks'); };
 $('tParts').onclick = function () { setTab('parts'); };
