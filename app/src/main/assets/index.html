@@ -1411,6 +1411,7 @@ function snapshot(list, w, h, opt) {
   if (box.isEmpty()) box.set(new THREE.Vector3(-500, -500, -500), new THREE.Vector3(500, 500, 500));
   var cam = new THREE.PerspectiveCamera(28, w / h, 5, 400000);
   var sph = box.getBoundingSphere(new THREE.Sphere()), dir = new THREE.Vector3(0.55, 0.42, 1).normalize();
+  if (opt.frame) { var fq = new THREE.Quaternion(); opt.frame.getWorldQuaternion(fq); dir.applyQuaternion(fq); }
   var fv = 28 * Math.PI / 180, fh = 2 * Math.atan(Math.tan(fv / 2) * w / h);
   cam.position.copy(sph.center).add(dir.multiplyScalar(sph.radius * (opt.margin || 1) / Math.sin(Math.min(fv, fh) / 2) * 1.02)); cam.lookAt(sph.center);
   cam.updateMatrixWorld(); cam.updateProjectionMatrix();
@@ -1422,8 +1423,16 @@ function snapshot(list, w, h, opt) {
   return url;
 }
 /* dimension lines on the block picture: outer size, gaps between shelves and between partitions */
-function wbox(n) { return new THREE.Box3().setFromObject(n.mesh, true); }
-function analyseBlock(list) {
+// boxes are measured in the block's own frame, so blocks turned to another wall are read the same way
+var BF = new THREE.Matrix4();
+function wbox(n) {
+  var g = n.mesh.geometry; if (!g.boundingBox) g.computeBoundingBox();
+  n.mesh.updateMatrixWorld(true);
+  return g.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(BF, n.mesh.matrixWorld));
+}
+function analyseBlock(list, frameObj, extOk) {
+  BF.identity(); if (frameObj) { frameObj.updateMatrixWorld(true); BF.copy(frameObj.matrixWorld).invert(); }
+  var W = frameObj ? frameObj.matrixWorld.clone() : new THREE.Matrix4();
   var B = new THREE.Box3(), items = [];
   list.forEach(function (n) { if (!n.mesh || n.room || n.type === 3001) return; var b = wbox(n); B.union(b); items.push({ n: n, b: b, s: b.getSize(new THREE.Vector3()) }); });
   var T = 45, shelves = [], parts = [], fronts = [];
@@ -1484,10 +1493,26 @@ function analyseBlock(list) {
   }
   var BN = new THREE.Box3(); items.forEach(function (it) { if (fronts.indexOf(it) < 0) BN.union(it.b); });
   if (BN.isEmpty()) BN.copy(B);
-  return { rise: rise, box: B, boxNF: BN, dimBox: fronts.length ? BN : B, items: items, shelves: shelves, parts: parts, frontItems: fronts, gaps: gaps.slice(0, 40), fronts: fronts.map(function (f) { return f.n; }) };
+  // doors / drawer fronts kept outside the block in Bazis: thin panels standing right in front of it and covering it
+  var ext = [];
+  if (frameObj) {
+    var inSet = {}; list.forEach(function (n) { inSet[n.idx] = 1; });
+    S.parts.forEach(function (n) {
+      if (inSet[n.idx] || !n.mesh || n.room || n.type !== 4002 || (extOk && !extOk(n))) return;
+      var b = wbox(n), sz = b.getSize(new THREE.Vector3());
+      if (!(sz.z <= T && sz.x > 80 && sz.y > 80)) return;
+      if (b.max.z < BN.max.z - 25 || b.min.z > BN.max.z + 60) return;
+      if (n.parent && !descParts(n.parent).every(function (q) { var qs = wbox(q).getSize(new THREE.Vector3()); return qs.z <= T; })) return; // fronts of another real block stay with that block
+      var ox = ov(b.min.x, b.max.x, BN.min.x, BN.max.x), oy = ov(b.min.y, b.max.y, BN.min.y, BN.max.y);
+      if (ox <= 0 || oy <= 0 || ox * oy < 0.5 * sz.x * sz.y) return;
+      ext.push({ n: n, b: b, s: sz, ext: true });
+    });
+  }
+  var allFronts = fronts.concat(ext);
+  return { W: W, rise: rise, box: B, boxNF: BN, dimBox: allFronts.length ? BN : B, items: items, shelves: shelves, parts: parts, frontItems: fronts, extFronts: ext, allFronts: allFronts, gaps: gaps.slice(0, 40), fronts: allFronts.map(function (f) { return f.n; }) };
 }
 function drawDims(g, cam, ox, oy, w, h, A) {
-  function P(v) { var p = v.clone().project(cam); return [ox + (p.x + 1) / 2 * w, oy + (1 - p.y) / 2 * h]; }
+  function P(v) { var p = v.clone().applyMatrix4(A.W || new THREE.Matrix4()).project(cam); return [ox + (p.x + 1) / 2 * w, oy + (1 - p.y) / 2 * h]; }
   function line(a, b) { g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
   var placed = [];
   function label(p, txt, col) {
@@ -1542,9 +1567,9 @@ function vdim(g, y1, y2, x, ext0, txt, col) {
 }
 var VIEW_NAMES = { front: 'წინხედი', side: 'გვერდხედი', top: 'ზედხედი' };
 function facadeNote(g, X, Y, W, A) {
-  if (!A.frontItems.length) return;
+  if (!A.allFronts.length) return;
   var grp = {}, order = [];
-  A.frontItems.forEach(function (it) { var n = it.n, k = dimText(n.dims) + '|' + n.mat; if (!grp[k]) { grp[k] = { n: n, q: 0 }; order.push(k); } grp[k].q++; });
+  A.allFronts.forEach(function (it) { var n = it.n, k = dimText(n.dims) + '|' + n.mat; if (!grp[k]) { grp[k] = { n: n, q: 0 }; order.push(k); } grp[k].q++; });
   var lines = order.map(function (k) { var r = grp[k]; return 'ფასადი' + (r.q > 1 ? ' ×' + r.q : '') + ': ' + dimText(r.n.dims) + ' მმ'; });
   var mats = order.map(function (k) { return grp[k].n.mat; }).filter(function (m, i, a) { return m && a.indexOf(m) === i; });
   g.font = '600 19px ' + PMONO; var w = 0; lines.forEach(function (l) { w = Math.max(w, g.measureText(l).width); });
@@ -1556,10 +1581,10 @@ function facadeNote(g, X, Y, W, A) {
   g.fillStyle = '#555'; g.font = '400 15px ' + PFONT; mats.forEach(function (m) { g.fillText(wrapLines(g, m, 420)[0], x + 12, yy - 4); yy += 20; });
 }
 function drawOrtho(g, X, Y, W, H, A, mode) {
-  var ORANGE = '#c2410c', BLUE = '#1d4ed8', B = A.frontItems.length ? A.boxNF : A.box;
+  var ORANGE = '#c2410c', BLUE = '#1d4ed8', B = A.allFronts.length ? A.boxNF : A.box;
   g.strokeStyle = '#d3dae2'; g.lineWidth = 1; g.strokeRect(X, Y, W, H);
   g.fillStyle = '#333'; g.font = '600 18px ' + PFONT; g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillText(VIEW_NAMES[mode], X + 10, Y + 18);
-  if (A.frontItems.length) { g.fillStyle = '#7c3aed'; g.font = '400 14px ' + PFONT; g.textAlign = 'right'; g.fillText('ფასადის გარეშე', X + W - 10, Y + 18); g.textAlign = 'left'; }
+  if (A.allFronts.length) { g.fillStyle = '#7c3aed'; g.font = '400 14px ' + PFONT; g.textAlign = 'right'; g.fillText('ფასადის გარეშე', X + W - 10, Y + 18); g.textAlign = 'left'; }
   function uv(x, y, z) { return mode === 'front' ? [x, y] : mode === 'side' ? [z, y] : [x, -z]; }
   var c = [uv(B.min.x, B.min.y, B.min.z), uv(B.max.x, B.max.y, B.max.z)];
   var u0 = Math.min(c[0][0], c[1][0]), u1 = Math.max(c[0][0], c[1][0]), v0 = Math.min(c[0][1], c[1][1]), v1 = Math.max(c[0][1], c[1][1]);
@@ -1858,12 +1883,13 @@ async function makeReport() {
         P.y += LH2 + 24;
         continue;
       }
-      var AN = analyseBlock(U.list), BS = AN.box.getSize(new THREE.Vector3()), NS = AN.boxNF.getSize(new THREE.Vector3());
+      var AN = analyseBlock(U.list, U.node ? U.node.obj : null, function (n) { return !inLib(n); }), BS = AN.box.getSize(new THREE.Vector3()), NS = AN.boxNF.getSize(new THREE.Vector3());
+      if (AN.extFronts.length) { var eb = AN.box.clone(); AN.extFronts.forEach(function (f) { eb.union(f.b); }); BS = eb.getSize(new THREE.Vector3()); }
       var sub = U.list.length + ' დეტალი · გაბარიტი ' + sizeText(BS) + ' მმ';
       if (AN.fronts.length && sizeText(NS) !== sizeText(BS)) sub += ' · ყუთი/კორპუსი ფასადის გარეშე ' + sizeText(NS) + ' მმ';
       P = newPage(U.title, sub); pages.push(P);
       var IH = 580;
-      var shot = snapshot(U.list, CW, IH, { want: true, margin: 1.22, ghost: AN.fronts });
+      var shot = snapshot(U.list.concat(AN.extFronts.map(function (f) { return f.n; })), CW, IH, { want: true, margin: 1.22, ghost: AN.fronts, frame: U.node ? U.node.obj : null });
       im = await loadImg(shot.url);
       if (im) { P.g.drawImage(im, MX, P.y, CW, IH); drawDims(P.g, shot.cam, MX, P.y, CW, IH, AN); facadeNote(P.g, MX, P.y, CW, AN); P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, IH); }
       P.y += IH + 12;
