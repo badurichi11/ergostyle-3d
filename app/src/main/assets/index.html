@@ -1468,9 +1468,23 @@ function analyseBlock(list) {
     if (seen[key]) return; seen[key] = 1;
     gaps.push({ a: new THREE.Vector3(A.b.max.x, y, z), b: new THREE.Vector3(best.b.min.x, y, z), v: gap });
   });
+  // sides / partitions that stick out above the top panel or below the bottom panel (raised or lowered)
+  var rise = [];
+  if (shelves.length) {
+    var topY = -1e9, botY = 1e9;
+    shelves.forEach(function (it) { topY = Math.max(topY, it.b.max.y); botY = Math.min(botY, it.b.min.y); });
+    parts.forEach(function (it) {
+      var x = (it.b.min.x + it.b.max.x) / 2, z = it.b.max.z - 5, up = it.b.max.y - topY, dn = botY - it.b.min.y;
+      if (up > 2) { gaps.push({ a: new THREE.Vector3(x, topY, z), b: new THREE.Vector3(x, it.b.max.y, z), v: up, kind: 'rise' }); rise.push({ it: it, up: up }); }
+      if (dn > 2) { gaps.push({ a: new THREE.Vector3(x, it.b.min.y, z), b: new THREE.Vector3(x, botY, z), v: dn, kind: 'rise' }); rise.push({ it: it, dn: dn }); }
+      var tdn = topY - it.b.max.y, bup = it.b.min.y - botY;
+      if (tdn > 2 && it.b.max.y > botY) rise.push({ it: it, tdn: tdn });
+      if (bup > 2 && it.b.min.y < topY) rise.push({ it: it, bup: bup });
+    });
+  }
   var BN = new THREE.Box3(); items.forEach(function (it) { if (fronts.indexOf(it) < 0) BN.union(it.b); });
   if (BN.isEmpty()) BN.copy(B);
-  return { box: B, boxNF: BN, dimBox: fronts.length ? BN : B, items: items, shelves: shelves, parts: parts, frontItems: fronts, gaps: gaps.slice(0, 40), fronts: fronts.map(function (f) { return f.n; }) };
+  return { rise: rise, box: B, boxNF: BN, dimBox: fronts.length ? BN : B, items: items, shelves: shelves, parts: parts, frontItems: fronts, gaps: gaps.slice(0, 40), fronts: fronts.map(function (f) { return f.n; }) };
 }
 function drawDims(g, cam, ox, oy, w, h, A) {
   function P(v) { var p = v.clone().project(cam); return [ox + (p.x + 1) / 2 * w, oy + (1 - p.y) / 2 * h]; }
@@ -1507,7 +1521,7 @@ function drawDims(g, cam, ox, oy, w, h, A) {
   dim(new THREE.Vector3(mn.x, mn.y, mx.z), new THREE.Vector3(mx.x, mn.y, mx.z), new THREE.Vector3(0, -k, k * 0.6), Math.round(mx.x - mn.x) + '', ORANGE);
   dim(new THREE.Vector3(mn.x, mn.y, mx.z), new THREE.Vector3(mn.x, mx.y, mx.z), new THREE.Vector3(-k, 0, k * 0.6), Math.round(mx.y - mn.y) + '', ORANGE);
   dim(new THREE.Vector3(mx.x, mn.y, mn.z), new THREE.Vector3(mx.x, mn.y, mx.z), new THREE.Vector3(k, -k * 0.6, 0), Math.round(mx.z - mn.z) + '', ORANGE);
-  A.gaps.forEach(function (gp) { inner(gp.a, gp.b, Math.round(gp.v) + '', BLUE); });
+  A.gaps.forEach(function (gp) { inner(gp.a, gp.b, (gp.kind === 'rise' ? '↕' : '') + Math.round(gp.v), gp.kind === 'rise' ? '#7c3aed' : BLUE); });
 }
 /* flat technical views of a block (front / side / top) drawn from part boxes */
 function tag(g, x, y, txt, col, size, align) {
@@ -1575,6 +1589,15 @@ function drawOrtho(g, X, Y, W, H, A, mode) {
     // left face of every partition, measured from the block's left side
     var xs = {}; A.parts.forEach(function (it) { var d = Math.round(it.b.min.x - B.min.x); if (d > 1 && d < Math.round(B.max.x - B.min.x) - 30) xs[d] = 1; });
     Object.keys(xs).map(Number).forEach(function (d) { var p = P(B.min.x + d, v1); g.strokeStyle = BLUE; g.beginPath(); g.moveTo(p[0], p[1] - 2); g.lineTo(p[0], p[1] - 10); g.stroke(); tag(g, p[0], p[1] - 20, '→' + d, BLUE, 15); });
+  }
+  if (mode === 'front' && A.rise) {
+    A.rise.forEach(function (r) {
+      var it = r.it, cxm = (it.b.min.x + it.b.max.x) / 2;
+      if (r.up) { var p = P(cxm, it.b.max.y); tag(g, p[0], p[1] - 12, '+' + Math.round(r.up), '#7c3aed', 15); }
+      if (r.dn) { var q = P(cxm, it.b.min.y); tag(g, q[0], q[1] + 12, '+' + Math.round(r.dn), '#7c3aed', 15); }
+      if (r.tdn) { var t = P(cxm, it.b.max.y); tag(g, t[0], t[1] + 12, '−' + Math.round(r.tdn), '#7c3aed', 15); }
+      if (r.bup) { var u = P(cxm, it.b.min.y); tag(g, u[0], u[1] - 12, '−' + Math.round(r.bup), '#7c3aed', 15); }
+    });
   }
   if (mode === 'side') {
     // how far shelves / partitions sit back from the carcass front and from the back
@@ -1809,7 +1832,7 @@ async function makeReport() {
       var sub = U.list.length + ' დეტალი · გაბარიტი ' + sizeText(BS) + ' მმ';
       if (AN.fronts.length && sizeText(NS) !== sizeText(BS)) sub += ' · ყუთი/კორპუსი ფასადის გარეშე ' + sizeText(NS) + ' მმ';
       P = newPage(U.title, sub); pages.push(P);
-      var IH = 620;
+      var IH = 580;
       var shot = snapshot(U.list, CW, IH, { want: true, margin: 1.22, ghost: AN.fronts });
       im = await loadImg(shot.url);
       if (im) { P.g.drawImage(im, MX, P.y, CW, IH); drawDims(P.g, shot.cam, MX, P.y, CW, IH, AN); facadeNote(P.g, MX, P.y, CW, AN); P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, IH); }
@@ -1817,8 +1840,9 @@ async function makeReport() {
       P.g.font = '400 17px ' + PFONT; P.g.textBaseline = 'middle';
       P.g.fillStyle = '#c2410c'; P.g.fillRect(MX, P.y + 2, 26, 4); P.g.fillStyle = '#555'; P.g.fillText(AN.fronts.length ? 'ყუთის / კორპუსის გაბარიტი ფასადის გარეშე' : 'გარე გაბარიტი', MX + 34, P.y + 4);
       P.g.fillStyle = '#1d4ed8'; P.g.fillRect(MX + 420, P.y + 2, 26, 4); P.g.fillStyle = '#555'; P.g.fillText('სუფთა მანძილი, სიმაღლე ძირიდან (↑), გადაწევა წინიდან (←), მმ', MX + 454, P.y + 4);
-      P.y += 26;
-      var VW = (CW - 30) / 3, VH = 400;
+      P.g.fillStyle = '#7c3aed'; P.g.fillRect(MX + 420, P.y + 24, 26, 4); P.g.fillStyle = '#555'; P.g.fillText('აწეული / ჩამოწეული გვერდი ან ტიხარი (+ ამოსულია, − ჩამოკლებულია)', MX + 454, P.y + 26);
+      P.y += 50;
+      var VW = (CW - 30) / 3, VH = 380;
       drawOrtho(P.g, MX, P.y, VW, VH, AN, 'front');
       drawOrtho(P.g, MX + VW + 15, P.y, VW, VH, AN, 'side');
       drawOrtho(P.g, MX + 2 * (VW + 15), P.y, VW, VH, AN, 'top');

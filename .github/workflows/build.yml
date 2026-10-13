@@ -46,7 +46,7 @@ jobs:
         run: |
           mkdir -p desktop/app
           cp -r app/src/main/assets/* desktop/app/
-          cp desktop/build/icon.png desktop/app/icon.png
+          cp desktop/icons/icon.png desktop/app/icon.png
       - name: Build Windows app
         working-directory: desktop
         run: |

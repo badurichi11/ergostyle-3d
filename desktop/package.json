@@ -16,13 +16,14 @@
   "build": {
     "appId": "ge.ergostyle.viewer3d",
     "productName": "Ergostyle 3D",
-    "icon": "build/icon.ico",
+    "icon": "icons/icon.ico",
     "files": [
       "main.js",
       "app/**/*"
     ],
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "icons"
     },
     "fileAssociations": [
       {
@@ -30,7 +31,7 @@
         "name": "Bazis 3D",
         "description": "Bazis 3D model",
         "role": "Viewer",
-        "icon": "build/icon.ico"
+        "icon": "icons/icon.ico"
       }
     ],
     "win": {
@@ -48,7 +49,7 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "icons/icon.ico"
     },
     "nsis": {
       "oneClick": false,
