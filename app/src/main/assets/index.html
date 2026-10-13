@@ -869,7 +869,7 @@ function updateChip() {
   var c = $('hchip'), cnt = 0;
   Object.keys(S.hidden).forEach(function (k) { if (S.hidden[k]) cnt++; });
   if (!cnt && !S.iso) { c.hidden = true; return; }
-  c.innerHTML = EYE + '<span>' + (S.iso ? 'ჩანს მხოლოდ ნაწილი' : 'დამალულია ' + cnt) + ' · ყველაფრის ჩვენება</span>';
+  c.innerHTML = EYE + '<span>' + (S.iso ? 'ყველაფრის ჩვენება' : 'დამალულია ' + cnt + ' · ყველაფრის ჩვენება') + '</span>';
   c.hidden = false;
 }
 $('hchip').onclick = showAll;
