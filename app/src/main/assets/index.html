@@ -186,6 +186,13 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .toast{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);z-index:9;background:var(--ink);color:var(--surface);padding:8px 8px 8px 14px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px}
 .toast button{border:0;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;white-space:nowrap}
 .hchip{position:absolute;bottom:12px;left:12px;z-index:4;background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;min-height:42px;padding:0 14px;font-weight:600;font-size:14px;box-shadow:var(--shadow);cursor:pointer;display:inline-flex;align-items:center;gap:8px;max-width:calc(100% - 92px)}
+.sbar{position:absolute;top:62px;left:12px;right:70px;z-index:6;display:flex;align-items:center;gap:6px;background:var(--surface);border:1.5px solid #1d6fd8;border-radius:10px;box-shadow:var(--shadow);height:42px;padding:0 4px 0 10px}
+.sbar>svg{width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:2;flex:none}
+.sbar input{flex:1;min-width:0;border:0;background:none;color:var(--ink);font:inherit;font-size:15px;height:100%;outline:none}
+.sbar button{width:34px;height:34px;border:0;background:none;border-radius:8px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;flex:none}
+.sbar button svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.sbar input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+#app.searching .sheet{top:112px;max-height:calc(100% - 190px)}
 .schip{position:absolute;right:12px;bottom:12px;z-index:4;background:#1d6fd8;color:#fff;border:0;border-radius:10px;min-height:42px;padding:0 12px;font-weight:600;font-size:13.5px;box-shadow:var(--shadow);cursor:pointer;display:inline-flex;align-items:center;gap:6px;max-width:calc(50% - 18px)}
 .schip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #app.has-search .hchip{max-width:calc(50% - 18px)}
@@ -213,6 +220,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   </div>
 
   <div class="rail">
+    <button class="btn" id="bSearch" aria-pressed="false" aria-label="ძებნა ნახაზზე" title="ძებნა ნახაზზე"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></button>
     <button class="btn" id="bFit" aria-label="მთლიანი ხედი" title="მთლიანი ხედი"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
     <button class="btn" id="bViews" aria-label="ხედი, რეჟიმი, კვეთა" title="ხედი, რეჟიმი, კვეთა"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
     <button class="btn" id="bMeasure" aria-pressed="false" aria-label="გაზომვა" title="გაზომვა"><svg viewBox="0 0 24 24"><path d="M3 17L17 3l4 4L7 21z M7 13l2 2M10 10l2 2M13 7l2 2"/></svg></button>
@@ -287,6 +295,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastAct" hidden></button></div>
   <button class="hchip" id="hchip" hidden></button>
   <button class="schip" id="schip" hidden></button>
+  <div class="sbar" id="sbar" hidden><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg><input id="q2" type="search" inputmode="search" placeholder="ზომა ან სახელი: 564x560" autocomplete="off" aria-label="ძებნა ნახაზზე"><button id="sbarClose" aria-label="ძებნის დახურვა"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="mode" id="modeTag" hidden></div>
   <div id="labels"></div>
   <div class="drop" id="drop" hidden>გადმოაგდე .b3d ფაილი</div>
@@ -894,7 +903,7 @@ function runSearch() {
   $('app').classList.toggle('has-search', !!S.hits);
   applyLook();
 }
-function clearSearch() { $('q').value = ''; runSearch(); renderList(); }
+function clearSearch() { $('q2').value = ''; $('q').value = ''; runSearch(); renderList(); }
 
 /* ---------- hide / isolate ---------- */
 function hideNodes(list) {
@@ -1315,6 +1324,16 @@ $('dbody').addEventListener('click', function (e) {
 });
 $('q').addEventListener('input', function () { renderList(); runSearch(); });
 $('schip').onclick = clearSearch;
+function openSearchBar(on) {
+  $('sbar').hidden = !on; $('app').classList.toggle('searching', on); $('bSearch').setAttribute('aria-pressed', on);
+  if (on) { $('q2').value = $('q').value; setTimeout(function () { try { $('q2').focus(); } catch (e) {} }, 30); }
+  else { clearSearch(); }
+}
+$('bSearch').onclick = function () { openSearchBar($('sbar').hidden); };
+$('sbarClose').onclick = function () { openSearchBar(false); };
+$('q2').addEventListener('input', function () { $('q').value = this.value; renderList(); runSearch(); });
+$('q2').addEventListener('keydown', function (e) { if (e.key === 'Enter') this.blur(); });
+$('q').addEventListener('input', function () { $('q2').value = this.value; });
 function setTab(t) { tab = t; ['tParts', 'tBlocks', 'tCut', 'tMats'].forEach(function (id) { $(id).setAttribute('aria-pressed', ({ tParts: 'parts', tBlocks: 'blocks', tCut: 'cut', tMats: 'mats' })[id] === t); }); renderList(); }
 $('tBlocks').onclick = function () { setTab('blocks'); };
 $('tParts').onclick = function () { setTab('parts'); };
@@ -1398,6 +1417,7 @@ window.openB64 = function (b64, name) { openDrawer(false); closePops(); openByte
 window.goBack = function () {
   if ($('drawer').classList.contains('open')) { openDrawer(false); return true; }
   if (!$('pViews').hidden || !$('pExplode').hidden) { closePops(); return true; }
+  if (!$('sbar').hidden) { openSearchBar(false); return true; }
   if (M.on) { setMeasure(false); return true; }
   if (S.chosen.length) { select(null); return true; }
   return false;
