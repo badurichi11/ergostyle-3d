@@ -874,7 +874,7 @@ var SEARCH_COLOR = '#1d6fd8';
 function parseQ(q) {
   q = (q || '').trim().toLowerCase();
   var nums = (q.match(/\d+(?:[.,]\d+)?/g) || []).map(function (x) { return parseFloat(x.replace(',', '.')); });
-  var text = q.replace(/\d+(?:[.,]\d+)?/g, ' ').replace(/[x×*хx\/,;-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  var text = q.replace(/\d+(?:[.,]\d+)?/g, ' ').replace(/(^|\s)ხ(\s|$)|[x×*хxX\/,;:-]+/g, ' ').replace(/\s+/g, ' ').trim();
   return { q: q, nums: nums, text: text };
 }
 function matchQ(n, Q) {
