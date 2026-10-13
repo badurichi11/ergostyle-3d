@@ -27,3 +27,33 @@ jobs:
         with:
           name: Ergostyle-3D-v${{ env.V }}
           path: Ergostyle-3D-v${{ env.V }}.apk
+
+  desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Version from the Android app
+        shell: bash
+        run: |
+          V=$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" app/build.gradle)
+          echo "V=$V" >> "$GITHUB_ENV"
+          cd desktop && npm pkg set version="$V.0"
+      - name: Copy the viewer into the desktop app
+        shell: bash
+        run: |
+          mkdir -p desktop/app
+          cp -r app/src/main/assets/* desktop/app/
+          cp desktop/build/icon.png desktop/app/icon.png
+      - name: Build Windows app
+        working-directory: desktop
+        run: |
+          npm install --no-audit --no-fund
+          npx electron-builder --win --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ergostyle-3D-Windows-v${{ env.V }}
+          path: |
+            desktop/dist/*.exe

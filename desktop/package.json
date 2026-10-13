@@ -1,0 +1,64 @@
+{
+  "name": "ergostyle-3d",
+  "productName": "Ergostyle 3D",
+  "version": "2.7.0",
+  "description": "Ergostyle 3D — Bazis .b3d viewer",
+  "main": "main.js",
+  "author": "Ergostyle",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "31.7.7",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "appId": "ge.ergostyle.viewer3d",
+    "productName": "Ergostyle 3D",
+    "icon": "build/icon.ico",
+    "files": [
+      "main.js",
+      "app/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "fileAssociations": [
+      {
+        "ext": "b3d",
+        "name": "Bazis 3D",
+        "description": "Bazis 3D model",
+        "role": "Viewer",
+        "icon": "build/icon.ico"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Ergostyle 3D",
+      "artifactName": "Ergostyle-3D-Setup-v${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Ergostyle-3D-Portable-v${version}.${ext}"
+    }
+  }
+}

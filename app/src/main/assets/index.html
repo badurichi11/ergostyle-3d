@@ -452,7 +452,7 @@ var B3D = (function () {
         node.cuts = [];
         var ct = get(o, 'Cuts');
         if (Array.isArray(ct)) for (var c2 = 0; c2 < ct.length; c2++) {
-          if (Array.isArray(ct[c2][1])) node.cuts.push({ name: fixName(get(ct[c2][1], 'Name')) || '', sign: fixName(get(ct[c2][1], 'Sign')) || '' });
+          if (Array.isArray(ct[c2][1])) node.cuts.push({ name: fixName(get(ct[c2][1], 'Name')) || '', sign: fixName(get(ct[c2][1], 'Sign')) || '', prof: contour(get(ct[c2][1], 'Contour')), traj: contour(get(ct[c2][1], 'Trajectory')) });
         }
         var bt = get(o, 'Butts');
         if (Array.isArray(bt)) for (var j = 0; j < bt.length; j++) {
@@ -1394,7 +1394,7 @@ function toast(m, act, fn) {
 /* ---------- PDF report: cover, one sheet per block, material sheets ---------- */
 var LOGO_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAAAAACupDjxAAARBklEQVR42s2deYzU53nHv79jZmfZXfYAgsMuuws4qaokoATZkhspUlVVitqaa7lip7Fjw3LYGBybRGpVKVFspW5SnLZqqlZN6zZREscYG1icUB+Yw2CzEMdRUx8EJyhtIyUF7znzns+3f3CE3Z2Z329mZ4D3LwSzv/3M83ve53qf5wWs53KKP/pkR2PXLlpf5SNQV0DNo4sAILyv4P2NBiik4aG5aPnQx7pj3Ovp/A0GaA1f7sYnjxTs/+yaiX7rzA0GqPnC+7H+Amk898xBv6lKhPUDNHz+JqwbE+1FKT7bgU0F+hsG0IvlkS6sUz7vRYSG+zvQb+jcDQIolke6cc+Iz9tLBoc/nI3NrvK9XCfAAg/PxV1WjDVy+Y0/NxtbrJcbAtDwhbm4a1zlrbaXX7ri7tnY6CvVwzoAOqf5ahfWj3klvCIw8ZZ7OrBZWSvXGdBrPj8ffXmvJ+0Iy+c6sNVU5vXqAKh4sAurxp3lpC3hC9zfgq1W5PoBitDypU6sG2LBu8kgLs89Lei3UsFmrrUEveLRHtw16kxRMXnubsfWSrweam5fXpyH9dqrEkIyfHoWtlSgh6i1fXl+HvrGrSmlaE7x2VZsMqmtTS0BvWgen4u+IRl34kv7mN3N2KzEumsPqHmkF+tHrS1vJ/lUK+4xcu0BC3x+PlaNiaGR8nH2U63oN0auMaDlC+/HmiFnvHFJkn6qFRtIn8Iiomb6p/hyDz4zTEMm/V6xfLIV9ymr/bWToOELPbjTunRxs+Pu1nTWplaAiofmYW1ep/QSovj9JvSr5HdcC0ARsTx8E/604LVPmXh4ze83YVPy96kJoFI8Oh93jDpTQUTv+e0WbLDeXoNXrHioEyvHaMVVpLXfa8FmkxBjoyZ8L3di+ZCxrqKcSDS/24GNqrzXmy6gGNF8rRvrhiTvxUmFO393EzZbW+57TVuCRvHEAqwtOF1F4cDxO03YaMXXEVDxlfnoG6IWI5X/tOZ3ZmKjLrOVpwtoeHgeVo2K9V6q+XHD7zbhXint9aYF6I3mqV6sGfbVSO9iCczyW03YrKzxdQB0isc/gNUjoqut/pG0/FYzNllfD0DFYz1YPk7npXpAUfz3RmwpZQ+rBvSehse7sXbEG7F+Gq/BGD7ViC2++FOqB1SKJxfh08PeynQtgeeTzdhS3FFiGu/3eDf6xsSImy4gNZ+cia1XFUpqAGh4qBurRpxzfvqAfozfa8bGkSK2BlUqoOWpTvSNiCU9pw8oit9v/MR7rBWgVXytB58eNTaF901XivH8j/+u3SvO81gP1hREJ+8QcWQqJXAsxlcFoJCah7uwbtgom2BfhI70hjSXfrJsXORqYweN0RxciDtGaIVJ6Zvmr7582+LPvOSss7SJ37w2EtQ8sQB3aDHJ/q3AMx8HgIa/oXHVmcsqJMijPVgxqo1PjJ8d3/4QmrKZXBw/Rudc/QFFaHl8Hla/54135QMsoeG7H0VTGCII4/ARGiuUOh9DiFEcXIBPjfkU+VuBZ25BDkEQBEEYYBcLztUdMM+jPegbpRab7ArPLkUuDIOLhHH4NboqTusqA7Q8PB/Lx7z1iabNy1uL0RBnLgEGmSj8Cr2rpwS9NzzZiZXnvU6qB4gYnluKXBiEAS6uIArwKMfqedLkFI93Y82opNA/xbeXojEOcdUKwuAxFpJ1o2rAAo924/YRGpdo0rS8swS5MIsJK8yEj9FoqQegkIaHu3D7BeYl0f86vrsYuTjOTpAgglwc/RWdlySvVwWg1Xn+aCHWjjCFABTfvQUNURAEEyWIIAS+xoIVuppLMM8TC7FyyOvkfah4dilaonAqIBCE4S7qSqxhSkDNEwuwbFysJG5D795agkzcUBQQYRx8jZWU6VIAitDw9QVYecGPJflfEcNzS9AYhiGKAiIM8Sh1+qP3NIC2wB9/AOuHJZ9mq79zCxqzl8xzEUAEQfA4tbMpN0qaV6x49GasHnUp/JuWny1GYxSHURzFcRxOWQEQxNFf06VNVlMAGh6dj5UjRifnl57vLEFjnMmi3MpE4V/SpowPA5Z9FmzksoNrzq1+YobNQKLyH9YN7649nQVFut5PApj48ADgL3+d8RJRdj2o4jBEipVkAPM83YvVI66QXMBSPHMLmqKoCR//hbbee+8mLmPcgZYwDhCF0depna3BK1Y80Yt14zQ+8ZUYf+ajaMxmokZ8mdY7752fsJz1Vt+GOEAYReEumhQHTWUBhTQ82Yu+YWNdogA1zyxGLojDqBlf9nnrplT8xJO8FREQBlEcfjVVfBiXe/veN7x+5y9W/kuzREGC+sHGP7/zJ40eDjDwYRjZyI2FkzTc2YNvxAAEPsDOzHYVJaphOcDAN7xy989WPtHsMgwSnmOyZ/veyFleIWL8Xw+dnbRLQlEXJNIX/z2IHwoesBZxUPUm0TzSjdtHvZPk+JlvfwS5OBsBQBZfpLLciUyRL50NGy79MQqjx5k3VeqgeBqe6MUfneeYJPk3Gp5bghnZKLoacEvYGE200pmLGcoVgUb4Ko0uX34qCajGObgAyy5IiviqwDO3ojET4uIvvwyITMLbC0J8lcpVt4sLPL4At19gwaawf2eXojGKL0snNSDCHHYl+BSU1L/XurHsgrcmsQnH8c2PoCGTyVYOiCgTPEanKgV03vBHvVjxHrUwITDymm8uRi6McEW5KgAMwhCPsuCEFR3k+AJP/g76RiTF8ZvmOx/DjAkkFQACQRg+wlFPXwlggUd6sXzY2+SQQ/PtJWiKssUAgzgFIKJM9AhLJ2IoWj841oU1QywwgU/oeebDmBGGcRHATWiKowkrjos4jrAxEz5auvsWxYzuyR70jYpJdJTi+eYSZCfLKYsvUjk+01JEXtkiuV4UYFdJTZ/q6hj+8o5zt/1jk8kwWYHOb3yjJV/cgthlx/43x4lP/unXzxX5qATB53tWSZjS1Tn+BbLfZj7F+YflPyMbZcJiEmTRzO0fEE6VYIBseMtoiRxlqgQDHA9alzIbIEoUIE4GXooLmoF3MolFNy0q/iCJ3jq7pHhAUiyaCQEm0wEgDAIQweTgHkDgXdPkv8vhpyiWYwQ+LLnhi+ggPvT88Nu/6+I0CcMtT5R6MEMcPNPgJ/xV9M6/xVKUwnX2MK0Oer7Vhd/PpznhEvnNYmSmZMCXdvG/FnkJmbhIthyEMb5RKqUtamaem417CslFLIrnyQVojIsBWm5FLp64stnM1HQ+aszG2Gp1BYbacaAD96QoNXrveXoBGooD3hdMdnUBMBUwmJHBZmNsJa5Oc6Adny2kKE6I5qneyVH7ZcApvjgoVhAJIjxgnKpEgjSKB9rwmdIe/LKoxcs4T81DJq4SMAiCGDscS1fNUOoMcN8s3JXYmkbSab66CI1hdYC5GVk84KtpjXIcmIUtJtmbiLU8tXCCuaoAMM7gz1zZnLt0TsKBDnw20dqIo8vzVC/CIoBxEmCQxU66skFd6azO8mAb7tEsH9SIEydjHOxBNppiZhovn+JMXL8tcmWxzXsnUgUgSc99Hfi0Sj6kFKd5aiEaJ4X828KWzJR1VWk9as5hm5tOB6bhgTm4W7kUcaHlYO8V930JcAdyRdxudAUwyOFh5/U0elid5sAc3O2S9NB5ceMc7LlMmMWXqLw/9XutbTMnrbbMldwqyOAhcTapWF2ugMnAxc/d9X8b/raBUfmgBgFUbnDdz2NPIIrMI3+usxKN/Tqa4kn0Pz0eWiDMetj7vx4guYaZFJIeaMcmlWJyweT545sRAwgb8SVRUuIw5Fc3IQAwI4vtrmxCnLqAOdCBDTqx90XoNX+yCBEQZPEVjltrjZ60jNFmpPPSZx6kV2b6gF5zbys+65ISPO+NKP64C3EYZvGHIyU/+GScixDG+Jw471MU0oPEzMjFe+89f+/fRz6TpC8i8an1Z3OGxIcX6owUSRHgXx3KhBlj7v87nypoR6pjiH2zcX8huaDsxfH1RcgE5cqxDRk0xNhhva7ZQY4o7uvAFp3YxSN0mq/fjDgIG7INualWOo7jOIzjDLZ7713NJnK8NzzQhg06YdBGHIWagwuQjYIoKuLjoiiK40wWO5z1KXvOUp52eg50YKOyibtOrOXpRcgVP6sLAkQtDdjqbPq+gNTHsQfm4D7lJI3XO/0BxCUAgzjGw04KNT/Q9ooDs7HJJnk9771VHOy+RFgsf3uY3qiaj04KLQda0V9I2HwiF6vHvWiMMSX7aMjF2Oqtr0PPAknHvR3YrNI0Kyqe7EVuKmBLBvfrNP6t2raUgXb0q8SM3tGMc7AH8RTAEJ8Xr+o1AC3Gcm8b+hO9noh4xde7MaFcGSDIYged865+E9qO+zpwr062NvSGJz+Iq/tmGmY0YLvU+xoDwx/MRr9O0RnvLd/44NXeNhPjIe8qn5qosD1Pc38b+pO9nqce5xuLriKMsJO2ij7RSltENfe1YrMSndT+66l5uhcNEYAgk81im3NepO6A9Hy6HRtUIdnrOcfBBcgFQDizAVuM06xiVdNku3cW+lPMQIhYDi5AJggyMR72oty1AXSG+zrQLylyPZ/nqW4AwBfojL1GgCKO+9qxWSVsSRHSjfP1jT1z/+Cb4ivyb9MCvJjRz8L9NtnaeOfJofNkis5QW3wwrLphA8UfzMGOFAPW3mpL2hRNc9S1Gja4FH0dnIOticO3nuLojXUJgF5o+Z+/qeVEjuP+dvQbb1mL5ZTmi7OWDdVs4OVKrqed1AJQCjw4G2tHpYaAori/Hds9a0GoeHAuPjXuazl05cXywGxsNVWPTf7Wbxsemodlo7a2Y2uk5/4ObHZ2mlNhWvHlm7ByREytAal5YBa2VzcXe/VTDs3D6hEWH6CZ3vCp5t73YZtMSw8Nn5+LFaNS4qxpWoBCy71t2JSvWg+NLfCleVgzXLJqMd0BaMt9HbhPVTt96gt8sRMrR6Rg6wRIxf3t2OaqfMuWL3RjzRh1yaLFtG8JcJbPzsIGW/kwkCMVD81F37BYKdnPWoN7FhwHOrDZ20rHeO2o5pF5WDlStgGmFhdBaD7Xge2uUj3UBb7QjVVDdFWeNFXi9QbmYJuqUA81X+pE37gYKdevXJvbUjQPtGKTSV80EOcVD3di+ZBoT1dnCZJ03NOKbT79hV8qz2M3YfkwkyY3anchzsAcfM6l9noFHp2PNaM04q8NoNN8ph3b02ZGmi934fZRoxNvqqsVoIjl023YoVOUX7Qp8EgXll2QGhyFVeQVnmnDzhQ3kqk8D8/HsqFU9+/W8mIwzf2t2Jmsh4qvdGHlKFPt+hoCijN8pgXbyqZwXmh4tBt/8p5on6K5qca35zk+04ztvozhtWOKRzux/AJNLQ9yKog+d7dhe5k2DinwpU4su5B6pLzWV0wa7puF7aUv/FI8Nh8rRr12zl4XQLHc34EHXLGpL6+t4bEuLL8gBeH1kSBJx90zsUO8Lhq/nOjE8lHqmp/VVaaHe2bhwWK5XoEnFqHvPSrvrieg09zbhgemjImI5rFe3D5MZa25noAilntmYoeeMOvs/DiPdmPFeSlUVMqsz2XFjrvb8fCEuTBRPNmNVcPeVFaIqA+gKD7Tgc9dfdHSOE9/EKvHaCu8KaBeF2Yb7mvF/e6iYxbxmq8uxPIhUZTrfpvy5crSs83YJtaS9KrAE91YNUJ1o9zoTdLw6XbspHWkV3x1EVYM0bobCFA097bhYU+K8NQirBgTdePciU5SvOHumfjUG5a//uZ8/PF50SJebhxAko5PNaP51k8sDLB2mOYG+68XLmUB7QCAtcM01d1/ldxcNp3lEP/w8RPyvju+0OxD+EwVj/h/Au0Zfac9rGQAAAAASUVORK5CYII=';
 var PW = 1240, PH = 1754, MX = 70, CW = PW - 2 * MX, BOTTOM = PH - 90;
-var PFONT = '"Noto Sans Georgian", system-ui, sans-serif', PMONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+var PFONT = '"Noto Sans Georgian", system-ui, sans-serif', PMONO = 'Roboto, "Noto Sans", Arial, "Noto Sans Georgian", sans-serif'; // plain zero, no dot or slash, so 0 never reads as 8
 var RPT = { file: '', date: '' }, logoImg = null;
 function busy(t) { if (t == null) { $('busy').hidden = true; return; } $('busy').hidden = false; $('busyTxt').textContent = t; }
 function nextFrame() { return new Promise(function (r) { requestAnimationFrame(function () { setTimeout(r, 0); }); }); }
@@ -1403,11 +1403,11 @@ function snapshot(list, w, h, opt) {
   opt = opt || {};
   var sv = { iso: S.iso, room: S.showRoom, chosen: S.chosen, sel: S.sel, hits: S.hits, disp: S.display, edges: S.edges, clip: renderer.clippingPlanes, pr: renderer.getPixelRatio(), bg: scene.background };
   if (list) { S.iso = {}; list.forEach(function (n) { S.iso[n.idx] = true; }); } else S.iso = null;
-  S.showRoom = false; S.chosen = []; S.sel = null; S.hits = null; S.display = 'solid'; S.edges = true;
+  S.showRoom = !!opt.room; S.chosen = []; S.sel = null; S.hits = null; S.display = 'solid'; S.edges = true;
   applyLook(); renderer.clippingPlanes = []; scene.background = new THREE.Color(0xffffff);
   if (opt.ghost) opt.ghost.forEach(function (n) { if (n.mesh) { n.mesh.material.opacity = 0.12; n.mesh.material.depthWrite = false; n.mesh.renderOrder = 3; } });
   var box = new THREE.Box3();
-  (list || S.parts).forEach(function (n) { if (n.mesh && n.mesh.visible && !n.room) box.expandByObject(n.mesh, true); });
+  (list || S.parts).forEach(function (n) { if (n.mesh && n.mesh.visible && (opt.room || !n.room)) box.expandByObject(n.mesh, true); });
   if (box.isEmpty()) box.set(new THREE.Vector3(-500, -500, -500), new THREE.Vector3(500, 500, 500));
   var cam = new THREE.PerspectiveCamera(28, w / h, 5, 400000);
   var sph = box.getBoundingSphere(new THREE.Sphere()), dir = new THREE.Vector3(0.55, 0.42, 1).normalize();
@@ -1431,7 +1431,7 @@ function analyseBlock(list) {
     var s = it.s;
     if (s.y <= T && s.x > 80 && s.z > 80) shelves.push(it);
     else if (s.x <= T && s.y > 80 && s.z > 80) parts.push(it);
-    else if (s.z <= T && s.x > 80 && s.y > 80 && it.b.max.z > B.max.z - 60) fronts.push(it);
+    else if (s.z <= T && s.x > 80 && s.y > 80 && it.b.max.z > B.max.z - 3) fronts.push(it);
   });
   function ov(a0, a1, b0, b1) { return Math.min(a1, b1) - Math.max(a0, b0); }
   var gaps = [], seen = {};
@@ -1468,7 +1468,9 @@ function analyseBlock(list) {
     if (seen[key]) return; seen[key] = 1;
     gaps.push({ a: new THREE.Vector3(A.b.max.x, y, z), b: new THREE.Vector3(best.b.min.x, y, z), v: gap });
   });
-  return { box: B, gaps: gaps.slice(0, 40), fronts: fronts.map(function (f) { return f.n; }) };
+  var BN = new THREE.Box3(); items.forEach(function (it) { if (fronts.indexOf(it) < 0) BN.union(it.b); });
+  if (BN.isEmpty()) BN.copy(B);
+  return { box: B, boxNF: BN, dimBox: fronts.length ? BN : B, items: items, shelves: shelves, parts: parts, frontItems: fronts, gaps: gaps.slice(0, 40), fronts: fronts.map(function (f) { return f.n; }) };
 }
 function drawDims(g, cam, ox, oy, w, h, A) {
   function P(v) { var p = v.clone().project(cam); return [ox + (p.x + 1) / 2 * w, oy + (1 - p.y) / 2 * h]; }
@@ -1501,12 +1503,189 @@ function drawDims(g, cam, ox, oy, w, h, A) {
     [[a, 1], [b, -1]].forEach(function (q) { var p = q[0], s = q[1]; line(p, [p[0] + (ux * 12 - uy * 6) * s, p[1] + (uy * 12 + ux * 6) * s]); line(p, [p[0] + (ux * 12 + uy * 6) * s, p[1] + (uy * 12 - ux * 6) * s]); });
     if (L > 24) label([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], txt, col);
   }
-  var B = A.box, mn = B.min, mx = B.max, k = Math.max(60, B.getSize(new THREE.Vector3()).length() * 0.07), ORANGE = '#c2410c', BLUE = '#1d4ed8';
+  var B = A.dimBox || A.box, mn = B.min, mx = B.max, k = Math.max(60, B.getSize(new THREE.Vector3()).length() * 0.07), ORANGE = '#c2410c', BLUE = '#1d4ed8';
   dim(new THREE.Vector3(mn.x, mn.y, mx.z), new THREE.Vector3(mx.x, mn.y, mx.z), new THREE.Vector3(0, -k, k * 0.6), Math.round(mx.x - mn.x) + '', ORANGE);
   dim(new THREE.Vector3(mn.x, mn.y, mx.z), new THREE.Vector3(mn.x, mx.y, mx.z), new THREE.Vector3(-k, 0, k * 0.6), Math.round(mx.y - mn.y) + '', ORANGE);
   dim(new THREE.Vector3(mx.x, mn.y, mn.z), new THREE.Vector3(mx.x, mn.y, mx.z), new THREE.Vector3(k, -k * 0.6, 0), Math.round(mx.z - mn.z) + '', ORANGE);
   A.gaps.forEach(function (gp) { inner(gp.a, gp.b, Math.round(gp.v) + '', BLUE); });
 }
+/* flat technical views of a block (front / side / top) drawn from part boxes */
+function tag(g, x, y, txt, col, size, align) {
+  g.font = '600 ' + (size || 17) + 'px ' + PMONO; var tw = g.measureText(txt).width + 8;
+  var x0 = align === 'l' ? x : align === 'r' ? x - tw : x - tw / 2;
+  g.fillStyle = '#ffffff'; g.fillRect(x0, y - 11, tw, 22);
+  g.fillStyle = col; g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillText(txt, x0 + 4, y + 1);
+}
+function hdim(g, x1, x2, y, ext0, txt, col) { // horizontal dimension at y, extension lines from ext0
+  g.strokeStyle = col; g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x1, ext0); g.lineTo(x1, y); g.moveTo(x2, ext0); g.lineTo(x2, y); g.stroke(); g.setLineDash([]);
+  g.lineWidth = 1.6; g.beginPath(); g.moveTo(x1, y); g.lineTo(x2, y); g.moveTo(x1 - 5, y + 5); g.lineTo(x1 + 5, y - 5); g.moveTo(x2 - 5, y + 5); g.lineTo(x2 + 5, y - 5); g.stroke();
+  tag(g, (x1 + x2) / 2, y, txt, col);
+}
+function vdim(g, y1, y2, x, ext0, txt, col) {
+  g.strokeStyle = col; g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(ext0, y1); g.lineTo(x, y1); g.moveTo(ext0, y2); g.lineTo(x, y2); g.stroke(); g.setLineDash([]);
+  g.lineWidth = 1.6; g.beginPath(); g.moveTo(x, y1); g.lineTo(x, y2); g.moveTo(x - 5, y1 + 5); g.lineTo(x + 5, y1 - 5); g.moveTo(x - 5, y2 + 5); g.lineTo(x + 5, y2 - 5); g.stroke();
+  g.save(); g.translate(x, (y1 + y2) / 2); g.rotate(-Math.PI / 2); tag(g, 0, 0, txt, col); g.restore();
+}
+var VIEW_NAMES = { front: 'წინხედი', side: 'გვერდხედი', top: 'ზედხედი' };
+function facadeNote(g, X, Y, W, A) {
+  if (!A.frontItems.length) return;
+  var grp = {}, order = [];
+  A.frontItems.forEach(function (it) { var n = it.n, k = dimText(n.dims) + '|' + n.mat; if (!grp[k]) { grp[k] = { n: n, q: 0 }; order.push(k); } grp[k].q++; });
+  var lines = order.map(function (k) { var r = grp[k]; return 'ფასადი' + (r.q > 1 ? ' ×' + r.q : '') + ': ' + dimText(r.n.dims) + ' მმ'; });
+  var mats = order.map(function (k) { return grp[k].n.mat; }).filter(function (m, i, a) { return m && a.indexOf(m) === i; });
+  g.font = '600 19px ' + PMONO; var w = 0; lines.forEach(function (l) { w = Math.max(w, g.measureText(l).width); });
+  g.font = '400 15px ' + PFONT; mats.forEach(function (m) { w = Math.max(w, Math.min(420, g.measureText(m).width)); });
+  w += 24; var h = 14 + lines.length * 26 + mats.length * 20 + 6, x = X + W - w - 12, y = Y + 12;
+  g.fillStyle = '#ffffff'; g.fillRect(x, y, w, h); g.strokeStyle = '#7c3aed'; g.lineWidth = 1.5; g.strokeRect(x, y, w, h);
+  g.textBaseline = 'middle'; g.textAlign = 'left'; var yy = y + 20;
+  g.fillStyle = '#5b21b6'; g.font = '600 19px ' + PMONO; lines.forEach(function (l) { g.fillText(l, x + 12, yy); yy += 26; });
+  g.fillStyle = '#555'; g.font = '400 15px ' + PFONT; mats.forEach(function (m) { g.fillText(wrapLines(g, m, 420)[0], x + 12, yy - 4); yy += 20; });
+}
+function drawOrtho(g, X, Y, W, H, A, mode) {
+  var ORANGE = '#c2410c', BLUE = '#1d4ed8', B = A.frontItems.length ? A.boxNF : A.box;
+  g.strokeStyle = '#d3dae2'; g.lineWidth = 1; g.strokeRect(X, Y, W, H);
+  g.fillStyle = '#333'; g.font = '600 18px ' + PFONT; g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillText(VIEW_NAMES[mode], X + 10, Y + 18);
+  if (A.frontItems.length) { g.fillStyle = '#7c3aed'; g.font = '400 14px ' + PFONT; g.textAlign = 'right'; g.fillText('ფასადის გარეშე', X + W - 10, Y + 18); g.textAlign = 'left'; }
+  function uv(x, y, z) { return mode === 'front' ? [x, y] : mode === 'side' ? [z, y] : [x, -z]; }
+  var c = [uv(B.min.x, B.min.y, B.min.z), uv(B.max.x, B.max.y, B.max.z)];
+  var u0 = Math.min(c[0][0], c[1][0]), u1 = Math.max(c[0][0], c[1][0]), v0 = Math.min(c[0][1], c[1][1]), v1 = Math.max(c[0][1], c[1][1]);
+  var padL = 62, padR = 62, padT = 44, padB = 52, aw = W - padL - padR, ah = H - padT - padB;
+  var sc = Math.min(aw / Math.max(1, u1 - u0), ah / Math.max(1, v1 - v0));
+  var ox = X + padL + (aw - (u1 - u0) * sc) / 2, oy = Y + padT + (ah - (v1 - v0) * sc) / 2;
+  function P(u, v) { return [ox + (u - u0) * sc, oy + (v1 - v) * sc]; }
+  function rectOf(b) { var a = uv(b.min.x, b.min.y, b.min.z), d = uv(b.max.x, b.max.y, b.max.z); var p = P(Math.min(a[0], d[0]), Math.max(a[1], d[1])), q = P(Math.max(a[0], d[0]), Math.min(a[1], d[1])); return [p[0], p[1], q[0] - p[0], q[1] - p[1]]; }
+  var depth = mode === 'front' ? function (it) { return it.b.max.z; } : mode === 'side' ? function (it) { return it.b.max.x; } : function (it) { return it.b.max.y; };
+  var list = A.items.filter(function (it) { return A.frontItems.indexOf(it) < 0; }).sort(function (a, b) { return depth(a) - depth(b); });
+  list.forEach(function (it) {
+    var r = rectOf(it.b), ghost = mode === 'front' && A.frontItems.indexOf(it) >= 0;
+    if (ghost) { g.setLineDash([6, 4]); g.strokeStyle = '#9aa3ad'; g.lineWidth = 1.2; g.strokeRect(r[0], r[1], r[2], r[3]); g.setLineDash([]); return; }
+    g.fillStyle = '#f4f1ec'; g.fillRect(r[0], r[1], r[2], r[3]); g.strokeStyle = '#2b2b2b'; g.lineWidth = 1.3; g.strokeRect(r[0], r[1], r[2], r[3]);
+  });
+  var a = P(u0, v0), b = P(u1, v1);
+  hdim(g, a[0], b[0], a[1] + 30, a[1] + 4, String(Math.round(u1 - u0)), ORANGE);
+  vdim(g, a[1], b[1], a[0] - 32, a[0] - 4, String(Math.round(v1 - v0)), ORANGE);
+  if (mode === 'front') {
+    // height of every horizontal panel's underside, measured from the block's bottom
+    var levels = {}; A.shelves.forEach(function (it) { var h = Math.round(it.b.min.y - B.min.y); if (h > 1 && h < Math.round(B.max.y - B.min.y) - 1) levels[h] = 1; });
+    var lastY = 1e9; Object.keys(levels).map(Number).sort(function (p, q) { return p - q; }).forEach(function (h) {
+      var p = P(u1, B.min.y + h), y = p[1]; if (lastY - y < 22) y = lastY - 22; lastY = y;
+      g.strokeStyle = BLUE; g.lineWidth = 1; g.beginPath(); g.moveTo(b[0] + 2, p[1]); g.lineTo(b[0] + 14, y); g.stroke();
+      tag(g, b[0] + 14, y, '↑' + h, BLUE, 15, 'l');
+    });
+    // left face of every partition, measured from the block's left side
+    var xs = {}; A.parts.forEach(function (it) { var d = Math.round(it.b.min.x - B.min.x); if (d > 1 && d < Math.round(B.max.x - B.min.x) - 30) xs[d] = 1; });
+    Object.keys(xs).map(Number).forEach(function (d) { var p = P(B.min.x + d, v1); g.strokeStyle = BLUE; g.beginPath(); g.moveTo(p[0], p[1] - 2); g.lineTo(p[0], p[1] - 10); g.stroke(); tag(g, p[0], p[1] - 20, '→' + d, BLUE, 15); });
+  }
+  if (mode === 'side') {
+    // how far shelves / partitions sit back from the carcass front and from the back
+    var BN = A.boxNF, done = {};
+    A.shelves.concat(A.parts).forEach(function (it) {
+      var f = Math.round(BN.max.z - it.b.max.z), k = Math.round(it.b.min.y);
+      if (f >= 2 && !done['f' + f + '_' + k]) { done['f' + f + '_' + k] = 1; var p = P(it.b.max.z, (it.b.min.y + it.b.max.y) / 2); tag(g, p[0] + 4, p[1], '←' + f, BLUE, 14, 'l'); }
+    });
+  }
+  if (mode === 'top') {
+    var BN2 = A.boxNF, seenT = {};
+    A.parts.forEach(function (it) {
+      var f = Math.round(BN2.max.z - it.b.max.z); if (f < 2 || seenT[f + '_' + Math.round(it.b.min.x)]) return; seenT[f + '_' + Math.round(it.b.min.x)] = 1;
+      var p = P((it.b.min.x + it.b.max.x) / 2, -it.b.max.z); tag(g, p[0], p[1] + 14, '↓' + f, BLUE, 14);
+    });
+  }
+}
+/* one part drawn flat with every edge length, notches, holes and grooves */
+function needsDrawing(n) {
+  if (n.type !== 4002 || !n.segs.length) return false;
+  if (n.cuts && n.cuts.length) return true;
+  if (n.segs.length !== 4) return true;
+  return !n.segs.every(function (x) { return x.t === 'L' && (Math.abs(x.x1 - x.x2) < 0.01 || Math.abs(x.y1 - x.y2) < 0.01); });
+}
+function drawPart(g, X, Y, W, H, n, num) {
+  var ORANGE = '#c2410c', BLUE = '#1d4ed8';
+  g.strokeStyle = '#d3dae2'; g.lineWidth = 1; g.strokeRect(X, Y, W, H);
+  g.fillStyle = '#111'; g.font = '600 18px ' + PFONT; g.textBaseline = 'middle'; g.textAlign = 'left';
+  var head = '№' + num + ' ' + niceName(n) + ' · ' + dimText(n.dims) + ' მმ';
+  g.fillText(wrapLines(g, head, W - 20)[0], X + 10, Y + 18);
+  g.fillStyle = '#555'; g.font = '400 15px ' + PFONT; g.fillText(wrapLines(g, n.mat || '', W - 20)[0], X + 10, Y + 40);
+  var padL = 110, padR = 70, padT = 80, padB = 100, aw = W - padL - padR, ah = H - padT - padB;
+  // lay the part along the longer side of the box it is drawn in
+  var L0 = loops(n.segs), bx = [], by = [];
+  L0.forEach(function (l) { l.pts.forEach(function (p) { bx.push(p[0]); by.push(p[1]); }); });
+  if (!bx.length) return;
+  var ew = Math.max.apply(null, bx) - Math.min.apply(null, bx), eh = Math.max.apply(null, by) - Math.min.apply(null, by);
+  var rot = Math.min(aw / ew, ah / eh) < Math.min(aw / eh, ah / ew);
+  function R(x, y) { return rot ? [y, -x] : [x, y]; }
+  n = Object.assign({}, n, { segs: n.segs.map(function (sg) {
+    var o = Object.assign({}, sg), a, b, c;
+    if (sg.x1 != null) { a = R(sg.x1, sg.y1); b = R(sg.x2, sg.y2); o.x1 = a[0]; o.y1 = a[1]; o.x2 = b[0]; o.y2 = b[1]; }
+    if (sg.cx != null) { c = R(sg.cx, sg.cy); o.cx = c[0]; o.cy = c[1]; }
+    return o;
+  }), cuts: (n.cuts || []).map(function (ct) { return Object.assign({}, ct, { traj: (ct.traj || []).map(function (sg) {
+    var o = Object.assign({}, sg), a, b, c;
+    if (sg.x1 != null) { a = R(sg.x1, sg.y1); b = R(sg.x2, sg.y2); o.x1 = a[0]; o.y1 = a[1]; o.x2 = b[0]; o.y2 = b[1]; }
+    if (sg.cx != null) { c = R(sg.cx, sg.cy); o.cx = c[0]; o.cy = c[1]; }
+    return o; }) }); }) });
+  var L = loops(n.segs), xs = [], ys = [];
+  L.forEach(function (l) { l.pts.forEach(function (p) { xs.push(p[0]); ys.push(p[1]); }); });
+  var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+  var sc = Math.min(aw / Math.max(1, x1 - x0), ah / Math.max(1, y1 - y0));
+  var ox = X + padL + (aw - (x1 - x0) * sc) / 2, oy = Y + padT + (ah - (y1 - y0) * sc) / 2;
+  function P(x, y) { return [ox + (x - x0) * sc, oy + (y1 - y) * sc]; }
+  g.beginPath();
+  L.forEach(function (l) { l.pts.forEach(function (p, i) { var q = P(p[0], p[1]); if (i) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]); }); if (l.closed) g.closePath(); });
+  g.fillStyle = '#f4f1ec'; g.fill('evenodd'); g.strokeStyle = '#222'; g.lineWidth = 1.8; g.stroke();
+  var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, placed = [];
+  function put(px, py, txt, col) {
+    for (var t = 0; t < 8; t++) { var hit = placed.some(function (r) { return Math.abs(r[0] - px) < 56 && Math.abs(r[1] - py) < 24; }); if (!hit) break; py += (t % 2 ? -1 : 1) * 24 * (t + 1); }
+    placed.push([px, py]); tag(g, px, py, txt, col, 17);
+  }
+  n.segs.forEach(function (sg) {
+    if (sg.t === 'L') {
+      var len = Math.hypot(sg.x2 - sg.x1, sg.y2 - sg.y1); if (len < 1) return;
+      var mx = (sg.x1 + sg.x2) / 2, my = (sg.y1 + sg.y2) / 2, nx = -(sg.y2 - sg.y1) / len, ny = (sg.x2 - sg.x1) / len;
+      if ((mx - cx) * nx + (my - cy) * ny < 0) { nx = -nx; ny = -ny; }
+      var p = P(mx, my); put(p[0] + nx * 24, p[1] - ny * 24, num2(len), '#333');
+    } else if (sg.t === 'A') {
+      var r = Math.hypot(sg.x1 - sg.cx, sg.y1 - sg.cy), a1 = Math.atan2(sg.y1 - sg.cy, sg.x1 - sg.cx), a2 = Math.atan2(sg.y2 - sg.cy, sg.x2 - sg.cx);
+      if (sg.cw) { while (a2 > a1) a2 -= 2 * Math.PI; } else { while (a2 < a1) a2 += 2 * Math.PI; }
+      var am = (a1 + a2) / 2, q = P(sg.cx + r * Math.cos(am), sg.cy + r * Math.sin(am)); put(q[0], q[1] - 14, 'R' + num2(r), '#333');
+    } else if (sg.t === 'C') {
+      var q2 = P(sg.cx, sg.cy); put(q2[0], q2[1], 'Ø' + num2(sg.r * 2), BLUE);
+      put(q2[0], q2[1] + 20, '(' + num2(sg.cx - x0) + '; ' + num2(sg.cy - y0) + ')', BLUE);
+    }
+  });
+  // position of inner openings from the left and bottom edges
+  L.forEach(function (l) {
+    if (!l.closed) return;
+    var lx = l.pts.map(function (p) { return p[0]; }), ly = l.pts.map(function (p) { return p[1]; });
+    var hx0 = Math.min.apply(null, lx), hx1 = Math.max.apply(null, lx), hy0 = Math.min.apply(null, ly), hy1 = Math.max.apply(null, ly);
+    if (hx0 - x0 < 0.5 && x1 - hx1 < 0.5 && hy0 - y0 < 0.5 && y1 - hy1 < 0.5) return; // outer contour
+    if (hx0 - x0 > 0.5) { var p1 = P(x0, (hy0 + hy1) / 2), p2 = P(hx0, (hy0 + hy1) / 2); g.strokeStyle = BLUE; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]); g.stroke(); g.setLineDash([]); put((p1[0] + p2[0]) / 2, p1[1] - 12, num2(hx0 - x0), BLUE); }
+    if (hy0 - y0 > 0.5) { var p3 = P((hx0 + hx1) / 2, y0), p4 = P((hx0 + hx1) / 2, hy0); g.strokeStyle = BLUE; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(p3[0], p3[1]); g.lineTo(p4[0], p4[1]); g.stroke(); g.setLineDash([]); put(p3[0] + 26, (p3[1] + p4[1]) / 2, num2(hy0 - y0), BLUE); }
+  });
+  // grooves / milling: path, profile size and distance from the nearest edge
+  (n.cuts || []).forEach(function (ct, ci) {
+    if (!ct.traj || !ct.traj.length) return;
+    g.strokeStyle = BLUE; g.lineWidth = 2.2; g.setLineDash([8, 5]);
+    ct.traj.forEach(function (sg) {
+      var pts = []; if (sg.t === 'C') return; tess(sg, pts);
+      g.beginPath(); pts.forEach(function (pp, i) { var q = P(pp[0], pp[1]); if (i) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]); }); g.stroke();
+    });
+    g.setLineDash([]);
+    var pw = 0, pd = 0;
+    if (ct.prof && ct.prof.length) { var pl = loops(ct.prof), px = [], py = []; pl.forEach(function (l) { l.pts.forEach(function (p) { px.push(p[0]); py.push(p[1]); }); }); if (px.length) { pw = Math.max.apply(null, px) - Math.min.apply(null, px); pd = Math.max.apply(null, py) - Math.min.apply(null, py); } }
+    var s0 = ct.traj[0], off = '';
+    if (s0.t === 'L') {
+      if (Math.abs(s0.x1 - s0.x2) < 0.5) off = ' · კიდიდან ' + num2(Math.min(Math.abs(s0.x1 - x0), Math.abs(x1 - s0.x1)));
+      else if (Math.abs(s0.y1 - s0.y2) < 0.5) off = ' · კიდიდან ' + num2(Math.min(Math.abs(s0.y1 - y0), Math.abs(y1 - s0.y1)));
+    }
+    var lbl = (ct.sign || ct.name || 'პაზი') + (pw ? ' ' + num2(pw) + '×' + num2(pd) : '') + off;
+    g.font = '600 14px ' + PMONO; g.fillStyle = BLUE; g.textAlign = 'left'; g.fillText(wrapLines(g, lbl, W - 20)[0], X + 10, Y + H - 18 - ci * 18);
+  });
+  var a = P(x0, y0), b = P(x1, y1);
+  hdim(g, a[0], b[0], a[1] + 62, a[1] + 4, num2(x1 - x0), ORANGE);
+  vdim(g, a[1], b[1], a[0] - 70, a[0] - 4, num2(y1 - y0), ORANGE);
+}
+function num2(v) { return String(Math.round(v * 10) / 10); }
 function wrapLines(g, text, maxW) {
   text = String(text == null ? '' : text); var out = [], line = '';
   text.split(/\s+/).forEach(function (w) {
@@ -1602,44 +1781,73 @@ async function makeReport() {
   var savedHidden = S.hidden, savedExplode = S.explode, pages = [];
   S.hidden = {}; S.explode = 0; applyExplode();
   try {
-    // 1. cover: whole piece in isometric view
+    // 1. cover: whole piece with walls, 2. the same without walls
     var solid = S.parts.filter(function (n) { return !n.room && n.type !== 3001; });
-    var P = newPage(RPT.file, 'ნაკეთობის სრული ხედი');
-    var im = await loadImg(snapshot(null, CW, 1180)); if (im) P.g.drawImage(im, MX, P.y, CW, 1180); P.y += 1200;
     var tops = S.nodes.filter(function (n) { return n.obj && !n.parent && descParts(n).length; });
     var loose = S.parts.filter(function (n) { return !n.parent && !n.room; });
-    var g = P.g; g.fillStyle = '#111'; g.font = '600 24px ' + PFONT;
+    var hasRoom = S.parts.some(function (n) { return n.room; });
+    var P, im, g;
+    if (hasRoom) {
+      P = newPage(RPT.file, 'სრული ხედი ოთახში');
+      im = await loadImg(snapshot(null, CW, 1240, { room: true })); if (im) P.g.drawImage(im, MX, P.y, CW, 1240); P.y += 1260;
+      pages.push(P);
+    }
+    P = newPage(RPT.file, 'ნაკეთობა კედლების გარეშე');
+    im = await loadImg(snapshot(null, CW, 1180)); if (im) P.g.drawImage(im, MX, P.y, CW, 1180); P.y += 1200;
+    g = P.g; g.fillStyle = '#111'; g.font = '600 24px ' + PFONT;
     if (S.size) { g.fillText('საერთო გაბარიტი: ' + sizeText(S.size) + ' მმ (სიგანე × სიმაღლე × სიღრმე)', MX, P.y); P.y += 40; }
     g.font = '400 22px ' + PFONT; g.fillStyle = '#444';
     g.fillText(solid.length + ' დეტალი · ' + tops.length + ' ბლოკი', MX, P.y);
     pages.push(P);
-    // 2. one sheet per block
+    // 3. one block per sheet: picture with sizes, three flat views, parts table, drawings of parts with cuts
     var units = tops.map(function (t) { return { title: blockName(t), node: t, list: descParts(t) }; });
     if (loose.length) units.push({ title: 'ცალკე დეტალები', node: null, list: loose });
     for (var u = 0; u < units.length; u++) {
       var U = units[u];
       busy('ბლოკი ' + (u + 1) + ' / ' + units.length); await nextFrame();
-      var sub = U.list.length + ' დეტალი' + (U.node && U.node.size ? ' · გაბარიტი ' + sizeText(U.node.size) + ' მმ' : '');
+      var AN = analyseBlock(U.list), BS = AN.box.getSize(new THREE.Vector3()), NS = AN.boxNF.getSize(new THREE.Vector3());
+      var sub = U.list.length + ' დეტალი · გაბარიტი ' + sizeText(BS) + ' მმ';
+      if (AN.fronts.length && sizeText(NS) !== sizeText(BS)) sub += ' · ყუთი/კორპუსი ფასადის გარეშე ' + sizeText(NS) + ' მმ';
       P = newPage(U.title, sub); pages.push(P);
-      var AN = analyseBlock(U.list), IH = 760;
+      var IH = 620;
       var shot = snapshot(U.list, CW, IH, { want: true, margin: 1.22, ghost: AN.fronts });
       im = await loadImg(shot.url);
-      if (im) { P.g.drawImage(im, MX, P.y, CW, IH); drawDims(P.g, shot.cam, MX, P.y, CW, IH, AN); P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, IH); }
+      if (im) { P.g.drawImage(im, MX, P.y, CW, IH); drawDims(P.g, shot.cam, MX, P.y, CW, IH, AN); facadeNote(P.g, MX, P.y, CW, AN); P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, IH); }
       P.y += IH + 12;
-      P.g.font = '400 18px ' + PFONT; P.g.fillStyle = '#555'; P.g.textBaseline = 'middle';
-      P.g.fillStyle = '#c2410c'; P.g.fillRect(MX, P.y + 2, 26, 4); P.g.fillStyle = '#555'; P.g.fillText('გარე გაბარიტი, მმ', MX + 34, P.y + 4);
-      P.g.fillStyle = '#1d4ed8'; P.g.fillRect(MX + 250, P.y + 2, 26, 4); P.g.fillStyle = '#555'; P.g.fillText('სუფთა მანძილი თაროებს / ტიხრებს შორის, მმ' + (AN.fronts.length ? ' · ფასადები გამჭვირვალედ' : ''), MX + 284, P.y + 4);
-      P.y += 30;
-      var rows = [], k = 1;
-      if (U.node) {
-        var own = U.node.children.filter(function (c) { return c.mesh; });
-        var br = blockRows(own, k); rows = rows.concat(br); k += br.length;
-        U.node.children.filter(function (c) { return c.obj && descParts(c).length; }).forEach(function (sb) {
-          rows.push({ section: blockName(sb) });
-          var sr = blockRows(descParts(sb), k); rows = rows.concat(sr); k += sr.length;
+      P.g.font = '400 17px ' + PFONT; P.g.textBaseline = 'middle';
+      P.g.fillStyle = '#c2410c'; P.g.fillRect(MX, P.y + 2, 26, 4); P.g.fillStyle = '#555'; P.g.fillText(AN.fronts.length ? 'ყუთის / კორპუსის გაბარიტი ფასადის გარეშე' : 'გარე გაბარიტი', MX + 34, P.y + 4);
+      P.g.fillStyle = '#1d4ed8'; P.g.fillRect(MX + 420, P.y + 2, 26, 4); P.g.fillStyle = '#555'; P.g.fillText('სუფთა მანძილი, სიმაღლე ძირიდან (↑), გადაწევა წინიდან (←), მმ', MX + 454, P.y + 4);
+      P.y += 26;
+      var VW = (CW - 30) / 3, VH = 400;
+      drawOrtho(P.g, MX, P.y, VW, VH, AN, 'front');
+      drawOrtho(P.g, MX + VW + 15, P.y, VW, VH, AN, 'side');
+      drawOrtho(P.g, MX + 2 * (VW + 15), P.y, VW, VH, AN, 'top');
+      P.y += VH + 20;
+      var rows = [], draws = [], k = 1;
+      function addRows(list) {
+        groupRows(list).forEach(function (r) {
+          var n = r.n, d = n.dims || [];
+          rows.push([String(k), niceName(n), n.mat || '—', String(r.nodes.length), fmt(d[0]), fmt(d[1]), fmt(d[2]), (cutText(n) || '') + (needsDrawing(n) ? (cutText(n) ? ' ' : '') + 'ნახ.' : ''), bandCount(n) ? bandCount(n) + ' მხ.' : '—']);
+          if (needsDrawing(n)) draws.push({ n: n, num: k });
+          k++;
         });
-      } else rows = blockRows(U.list, 1);
+      }
+      if (U.node) {
+        addRows(U.node.children.filter(function (c) { return c.mesh; }));
+        U.node.children.filter(function (c) { return c.obj && descParts(c).length; }).forEach(function (sb) { rows.push({ section: blockName(sb) }); addRows(descParts(sb)); });
+      } else addRows(U.list);
       P = tablePages(pages, P, U.title, BLOCK_COLS, rows);
+      if (draws.length) {
+        var big = draws.length <= 2, DW = big ? CW : (CW - 20) / 2, DH = big ? 640 : 470;
+        if (P.y + 40 + DH > BOTTOM) { P = newPage(U.title, 'დეტალები ჭრებით და ამონაჭრებით'); pages.push(P); }
+        else { P.g.fillStyle = '#111'; P.g.font = '700 22px ' + PFONT; P.g.textBaseline = 'middle'; P.g.fillText('დეტალები ჭრებით და ამონაჭრებით (ცხრილში „ნახ.“)', MX, P.y + 10); P.y += 34; }
+        for (var di = 0; di < draws.length; di++) {
+          var col = big ? 0 : di % 2;
+          if (col === 0 && P.y + DH > BOTTOM) { P = newPage(U.title, 'დეტალები ჭრებით და ამონაჭრებით'); pages.push(P); }
+          drawPart(P.g, MX + col * (DW + 20), P.y, DW, DH, draws[di].n, draws[di].num);
+          if (big || col === 1 || di === draws.length - 1) P.y += DH + 16;
+        }
+      }
     }
     // 3. materials: summary, then one sheet per material
     busy('მასალები…'); await nextFrame();
