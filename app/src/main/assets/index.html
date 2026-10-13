@@ -202,6 +202,11 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-family:var(--f-data);font-size:13px;font-variant-numeric:tabular-nums}
 .mgrid span{background:var(--bg);border-radius:7px;padding:6px 8px;text-align:center;min-width:0}
 .mgrid b{display:block;font-family:var(--f-body);font-weight:500;color:var(--muted);font-size:11.5px}
+.busy{position:absolute;inset:0;z-index:30;background:rgba(10,16,24,.45);display:flex;align-items:center;justify-content:center}
+.busy>div{background:var(--surface);color:var(--ink);border-radius:12px;padding:16px 20px;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow);font-size:15px}
+.spin{width:20px;height:20px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
 .drop{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(194,65,12,.15);border:3px dashed var(--accent);font-size:18px;font-weight:600}
 
 @media (prefers-reduced-motion:reduce){.drawer{transition:none}}
@@ -226,6 +231,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     <button class="btn" id="bMeasure" aria-pressed="false" aria-label="გაზომვა" title="გაზომვა"><svg viewBox="0 0 24 24"><path d="M3 17L17 3l4 4L7 21z M7 13l2 2M10 10l2 2M13 7l2 2"/></svg></button>
     <button class="btn" id="bExplode" aria-label="დაშლა" title="დაშლილი ხედი"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
     <button class="btn" id="bSize" aria-pressed="false" aria-label="საერთო გაბარიტი" title="საერთო გაბარიტი"><svg viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12" rx="1"/><path d="M5 3.5h14M5 2v3M19 2v3M21.5 7v12M20 7h3M20 19h3"/></svg></button>
+    <button class="btn" id="bPdf" aria-label="ბეჭდვა (PDF)" title="ბეჭდვა (PDF)"><svg viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z"/></svg></button>
     <button class="btn" id="bRoom" aria-pressed="true" aria-label="კედლები" title="კედლები და იატაკი"><svg viewBox="0 0 24 24"><path d="M4 20V6l8-3 8 3v14M4 20h16M9 20v-6h6v6"/></svg></button>
   </div>
 
@@ -298,12 +304,14 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   <div class="sbar" id="sbar" hidden><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg><input id="q2" type="search" inputmode="search" placeholder="ზომა ან სახელი: 564x560" autocomplete="off" aria-label="ძებნა ნახაზზე"><button id="sbarClose" aria-label="ძებნის დახურვა"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="mode" id="modeTag" hidden></div>
   <div id="labels"></div>
+  <div class="busy" id="busy" hidden><div><span class="spin"></span><b id="busyTxt">PDF მზადდება…</b></div></div>
   <div class="drop" id="drop" hidden>გადმოაგდე .b3d ფაილი</div>
 </div>
 
 <script src="pako_inflate.min.js"></script>
 <script src="three.min.js"></script>
 <script src="OrbitControls.js"></script>
+<script src="jspdf.umd.min.js"></script>
 <script>
 // Bazis .b3d reader (BZ85 container, zlib streams, tagged binary tree)
 // Works in browser (pako global) and node (require('zlib')).
@@ -1382,6 +1390,313 @@ function toast(m, act, fn) {
   b.hidden = !act; if (act) { b.textContent = act; b.onclick = function () { t.hidden = true; fn(); }; }
   t.hidden = false; clearTimeout(tt); tt = setTimeout(function () { t.hidden = true; }, act ? 5000 : 3200);
 }
+
+/* ---------- PDF report: cover, one sheet per block, material sheets ---------- */
+var LOGO_B64 = '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';
+var PW = 1240, PH = 1754, MX = 70, CW = PW - 2 * MX, BOTTOM = PH - 90;
+var PFONT = '"Noto Sans Georgian", system-ui, sans-serif', PMONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+var RPT = { file: '', date: '' }, logoImg = null;
+function busy(t) { if (t == null) { $('busy').hidden = true; return; } $('busy').hidden = false; $('busyTxt').textContent = t; }
+function nextFrame() { return new Promise(function (r) { requestAnimationFrame(function () { setTimeout(r, 0); }); }); }
+function loadImg(src) { return new Promise(function (res) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = function () { res(null); }; i.src = src; }); }
+function snapshot(list, w, h, opt) {
+  opt = opt || {};
+  var sv = { iso: S.iso, room: S.showRoom, chosen: S.chosen, sel: S.sel, hits: S.hits, disp: S.display, edges: S.edges, clip: renderer.clippingPlanes, pr: renderer.getPixelRatio(), bg: scene.background };
+  if (list) { S.iso = {}; list.forEach(function (n) { S.iso[n.idx] = true; }); } else S.iso = null;
+  S.showRoom = false; S.chosen = []; S.sel = null; S.hits = null; S.display = 'solid'; S.edges = true;
+  applyLook(); renderer.clippingPlanes = []; scene.background = new THREE.Color(0xffffff);
+  if (opt.ghost) opt.ghost.forEach(function (n) { if (n.mesh) { n.mesh.material.opacity = 0.12; n.mesh.material.depthWrite = false; n.mesh.renderOrder = 3; } });
+  var box = new THREE.Box3();
+  (list || S.parts).forEach(function (n) { if (n.mesh && n.mesh.visible && !n.room) box.expandByObject(n.mesh, true); });
+  if (box.isEmpty()) box.set(new THREE.Vector3(-500, -500, -500), new THREE.Vector3(500, 500, 500));
+  var cam = new THREE.PerspectiveCamera(28, w / h, 5, 400000);
+  var sph = box.getBoundingSphere(new THREE.Sphere()), dir = new THREE.Vector3(0.55, 0.42, 1).normalize();
+  var fv = 28 * Math.PI / 180, fh = 2 * Math.atan(Math.tan(fv / 2) * w / h);
+  cam.position.copy(sph.center).add(dir.multiplyScalar(sph.radius * (opt.margin || 1) / Math.sin(Math.min(fv, fh) / 2) * 1.02)); cam.lookAt(sph.center);
+  cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+  renderer.setPixelRatio(1); renderer.setSize(w, h, false); renderer.render(scene, cam);
+  var url = renderer.domElement.toDataURL('image/jpeg', 0.92);
+  S.iso = sv.iso; S.showRoom = sv.room; S.chosen = sv.chosen; S.sel = sv.sel; S.hits = sv.hits; S.display = sv.disp; S.edges = sv.edges;
+  renderer.clippingPlanes = sv.clip; scene.background = sv.bg; renderer.setPixelRatio(sv.pr); resize(); applyLook();
+  if (opt.want) return { url: url, cam: cam };
+  return url;
+}
+/* dimension lines on the block picture: outer size, gaps between shelves and between partitions */
+function wbox(n) { return new THREE.Box3().setFromObject(n.mesh, true); }
+function analyseBlock(list) {
+  var B = new THREE.Box3(), items = [];
+  list.forEach(function (n) { if (!n.mesh || n.room || n.type === 3001) return; var b = wbox(n); B.union(b); items.push({ n: n, b: b, s: b.getSize(new THREE.Vector3()) }); });
+  var T = 45, shelves = [], parts = [], fronts = [];
+  items.forEach(function (it) {
+    var s = it.s;
+    if (s.y <= T && s.x > 80 && s.z > 80) shelves.push(it);
+    else if (s.x <= T && s.y > 80 && s.z > 80) parts.push(it);
+    else if (s.z <= T && s.x > 80 && s.y > 80 && it.b.max.z > B.max.z - 60) fronts.push(it);
+  });
+  function ov(a0, a1, b0, b1) { return Math.min(a1, b1) - Math.max(a0, b0); }
+  var gaps = [], seen = {};
+  shelves.forEach(function (A) {
+    var best = null;
+    shelves.forEach(function (C) {
+      if (C === A || C.b.min.y < A.b.max.y - 1) return;
+      var o = ov(A.b.min.x, A.b.max.x, C.b.min.x, C.b.max.x), oz = ov(A.b.min.z, A.b.max.z, C.b.min.z, C.b.max.z);
+      if (o < 0.5 * Math.min(A.s.x, C.s.x) || oz < 40) return;
+      // nothing (another shelf) in between in that column
+      if (!best || C.b.min.y < best.b.min.y) best = C;
+    });
+    if (!best) return;
+    var gap = best.b.min.y - A.b.max.y; if (gap < 15) return;
+    var x0 = Math.max(A.b.min.x, best.b.min.x), x1 = Math.min(A.b.max.x, best.b.max.x), x = (x0 + x1) / 2;
+    var z = Math.min(A.b.max.z, best.b.max.z) - 5;
+    var key = 'y' + Math.round(A.b.max.y) + '_' + Math.round(best.b.min.y) + '_' + Math.round(x / 50);
+    if (seen[key]) return; seen[key] = 1;
+    gaps.push({ a: new THREE.Vector3(x, A.b.max.y, z), b: new THREE.Vector3(x, best.b.min.y, z), v: gap });
+  });
+  parts.forEach(function (A) {
+    var best = null;
+    parts.forEach(function (C) {
+      if (C === A || C.b.min.x < A.b.max.x - 1) return;
+      var o = ov(A.b.min.y, A.b.max.y, C.b.min.y, C.b.max.y);
+      if (o < 0.5 * Math.min(A.s.y, C.s.y)) return;
+      if (!best || C.b.min.x < best.b.min.x) best = C;
+    });
+    if (!best) return;
+    var gap = best.b.min.x - A.b.max.x; if (gap < 15) return;
+    var y0 = Math.max(A.b.min.y, best.b.min.y), y1 = Math.min(A.b.max.y, best.b.max.y);
+    var y = y0 + (y1 - y0) * 0.82, z = Math.min(A.b.max.z, best.b.max.z) - 5;
+    var key = 'x' + Math.round(A.b.max.x) + '_' + Math.round(best.b.min.x);
+    if (seen[key]) return; seen[key] = 1;
+    gaps.push({ a: new THREE.Vector3(A.b.max.x, y, z), b: new THREE.Vector3(best.b.min.x, y, z), v: gap });
+  });
+  return { box: B, gaps: gaps.slice(0, 40), fronts: fronts.map(function (f) { return f.n; }) };
+}
+function drawDims(g, cam, ox, oy, w, h, A) {
+  function P(v) { var p = v.clone().project(cam); return [ox + (p.x + 1) / 2 * w, oy + (1 - p.y) / 2 * h]; }
+  function line(a, b) { g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+  var placed = [];
+  function label(p, txt, col) {
+    g.font = '600 21px ' + PMONO; var tw = g.measureText(txt).width + 12;
+    var tries = [0, 32, -32, 64, -64, 96, -96], px = p[0], py = p[1];
+    for (var t = 0; t < tries.length; t++) {
+      var cy = p[1] + tries[t], hit = placed.some(function (r) { return Math.abs(r[0] - px) < (r[2] + tw) / 2 + 4 && Math.abs(r[1] - cy) < 30; });
+      if (!hit) { py = cy; break; }
+    }
+    placed.push([px, py, tw]); p = [px, py];
+    g.fillStyle = '#ffffff'; g.fillRect(p[0] - tw / 2, p[1] - 14, tw, 28);
+    g.strokeStyle = col; g.lineWidth = 1.5; g.strokeRect(p[0] - tw / 2, p[1] - 14, tw, 28);
+    g.fillStyle = col; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, p[0], p[1] + 1); g.textAlign = 'left';
+  }
+  function dim(a3, b3, off3, txt, col) {
+    var a = P(a3), b = P(b3), ao = P(a3.clone().add(off3)), bo = P(b3.clone().add(off3));
+    g.strokeStyle = col; g.lineWidth = 1; g.setLineDash([4, 4]); line(a, ao); line(b, bo); g.setLineDash([]);
+    g.lineWidth = 2; line(ao, bo);
+    var dx = bo[0] - ao[0], dy = bo[1] - ao[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L * 8, ny = dx / L * 8;
+    [ao, bo].forEach(function (p) { line([p[0] - nx + dx / L * 6, p[1] - ny + dy / L * 6], [p[0] + nx - dx / L * 6, p[1] + ny - dy / L * 6]); });
+    label([(ao[0] + bo[0]) / 2, (ao[1] + bo[1]) / 2], txt, col);
+  }
+  function inner(a3, b3, txt, col) {
+    var a = P(a3), b = P(b3);
+    g.strokeStyle = col; g.lineWidth = 2; line(a, b);
+    var dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+    [[a, 1], [b, -1]].forEach(function (q) { var p = q[0], s = q[1]; line(p, [p[0] + (ux * 12 - uy * 6) * s, p[1] + (uy * 12 + ux * 6) * s]); line(p, [p[0] + (ux * 12 + uy * 6) * s, p[1] + (uy * 12 - ux * 6) * s]); });
+    if (L > 24) label([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], txt, col);
+  }
+  var B = A.box, mn = B.min, mx = B.max, k = Math.max(60, B.getSize(new THREE.Vector3()).length() * 0.07), ORANGE = '#c2410c', BLUE = '#1d4ed8';
+  dim(new THREE.Vector3(mn.x, mn.y, mx.z), new THREE.Vector3(mx.x, mn.y, mx.z), new THREE.Vector3(0, -k, k * 0.6), Math.round(mx.x - mn.x) + '', ORANGE);
+  dim(new THREE.Vector3(mn.x, mn.y, mx.z), new THREE.Vector3(mn.x, mx.y, mx.z), new THREE.Vector3(-k, 0, k * 0.6), Math.round(mx.y - mn.y) + '', ORANGE);
+  dim(new THREE.Vector3(mx.x, mn.y, mn.z), new THREE.Vector3(mx.x, mn.y, mx.z), new THREE.Vector3(k, -k * 0.6, 0), Math.round(mx.z - mn.z) + '', ORANGE);
+  A.gaps.forEach(function (gp) { inner(gp.a, gp.b, Math.round(gp.v) + '', BLUE); });
+}
+function wrapLines(g, text, maxW) {
+  text = String(text == null ? '' : text); var out = [], line = '';
+  text.split(/\s+/).forEach(function (w) {
+    var t = line ? line + ' ' + w : w;
+    if (g.measureText(t).width <= maxW) { line = t; return; }
+    if (line) out.push(line);
+    line = '';
+    while (g.measureText(w).width > maxW && w.length > 1) { var k = w.length; while (k > 1 && g.measureText(w.slice(0, k)).width > maxW) k--; out.push(w.slice(0, k)); w = w.slice(k); }
+    line = w;
+  });
+  if (line || !out.length) out.push(line);
+  return out;
+}
+function newPage(title, sub) {
+  var c = document.createElement('canvas'); c.width = PW; c.height = PH;
+  var g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.fillRect(0, 0, PW, PH);
+  g.textBaseline = 'middle';
+  if (logoImg) g.drawImage(logoImg, MX, 46, 70, 70);
+  g.fillStyle = '#111'; g.font = '700 28px ' + PFONT; g.fillText('ერგოსტილი', MX + 86, 68);
+  g.fillStyle = '#666'; g.font = '400 20px ' + PFONT; g.fillText(RPT.file, MX + 86, 100);
+  g.textAlign = 'right'; g.fillText(RPT.date, PW - MX, 68); g.textAlign = 'left';
+  g.strokeStyle = '#c2410c'; g.lineWidth = 3; g.beginPath(); g.moveTo(MX, 136); g.lineTo(PW - MX, 136); g.stroke();
+  var y = 190;
+  g.fillStyle = '#111'; g.font = '700 40px ' + PFONT;
+  wrapLines(g, title, CW).slice(0, 2).forEach(function (l) { g.fillText(l, MX, y); y += 50; });
+  if (sub) { g.fillStyle = '#555'; g.font = '400 22px ' + PFONT; g.fillText(sub, MX, y - 6); y += 34; }
+  return { c: c, g: g, y: y + 10 };
+}
+function drawTable(P, cols, rows, from) {
+  var g = P.g, y = P.y, pad = 8, LH = 25;
+  g.textBaseline = 'top';
+  // header
+  g.fillStyle = '#fbe5d8'; g.fillRect(MX, y, CW, 46);
+  g.strokeStyle = '#d9b9a6'; g.lineWidth = 1; g.strokeRect(MX, y, CW, 46);
+  var x = MX; g.fillStyle = '#9a3412'; g.font = '600 18px ' + PFONT;
+  cols.forEach(function (c) { g.fillText(c.t, x + pad, y + 13); x += c.w; });
+  y += 46;
+  var i = from || 0;
+  for (; i < rows.length; i++) {
+    var r = rows[i];
+    if (r.section) {
+      if (y + 44 > BOTTOM) break;
+      g.fillStyle = '#eef1f4'; g.fillRect(MX, y, CW, 40); g.strokeStyle = '#d3dae2'; g.strokeRect(MX, y, CW, 40);
+      g.fillStyle = '#222'; g.font = '700 19px ' + PFONT; g.fillText(r.section, MX + pad, y + 10); y += 40; continue;
+    }
+    var cells = cols.map(function (c, k) { g.font = (c.mono ? '500 18px ' + PMONO : '400 18px ' + PFONT); return wrapLines(g, r[k], c.w - 2 * pad); });
+    var h = Math.max.apply(null, cells.map(function (l) { return l.length; })) * LH + 14;
+    if (y + h > BOTTOM) break;
+    if (i % 2) { g.fillStyle = '#f7f8fa'; g.fillRect(MX, y, CW, h); }
+    x = MX;
+    cols.forEach(function (c, k) {
+      g.font = (c.mono ? '500 18px ' + PMONO : '400 18px ' + PFONT); g.fillStyle = c.muted ? '#555' : '#111';
+      cells[k].forEach(function (l, j) {
+        if (c.al === 'r') { g.textAlign = 'right'; g.fillText(l, x + c.w - pad, y + 7 + j * LH); g.textAlign = 'left'; }
+        else g.fillText(l, x + pad, y + 7 + j * LH);
+      });
+      g.strokeStyle = '#d3dae2'; g.strokeRect(x, y, c.w, h); x += c.w;
+    });
+    y += h;
+  }
+  g.textBaseline = 'middle';
+  P.y = y + 20;
+  return i;
+}
+function tablePages(pages, P, title, cols, rows) {
+  var at = drawTable(P, cols, rows, 0);
+  while (at < rows.length) { P = newPage(title, '(გაგრძელება)'); pages.push(P); at = drawTable(P, cols, rows, at); }
+  return P;
+}
+function fmt(v) { return v == null ? '—' : num(v); }
+function bandCount(n) { return n.butts.filter(function (b) { return b.mat; }).length; }
+var BLOCK_COLS = [
+  { t: '№', w: 50, al: 'r', mono: true }, { t: 'დეტალი', w: 240 }, { t: 'მასალა', w: 290, muted: true },
+  { t: 'რ-ბა', w: 70, al: 'r', mono: true }, { t: 'სიგრძე', w: 100, al: 'r', mono: true }, { t: 'სიგანე', w: 100, al: 'r', mono: true },
+  { t: 'სისქე', w: 80, al: 'r', mono: true }, { t: 'პაზი', w: 80, muted: true }, { t: 'წიბო', w: 90, al: 'r', mono: true }
+];
+function blockRows(list, start) {
+  var k = start || 1;
+  return groupRows(list).map(function (r) {
+    var n = r.n, d = n.dims || [];
+    return [String(k++), niceName(n), n.mat || '—', String(r.nodes.length), fmt(d[0]), fmt(d[1]), fmt(d[2]), cutText(n) || '', bandCount(n) ? bandCount(n) + ' მხ.' : '—'];
+  });
+}
+async function makeReport() {
+  if (!window.jspdf || !window.jspdf.jsPDF) { toast('PDF ვერ შეიქმნება: ბიბლიოთეკა ვერ ჩაიტვირთა.'); return; }
+  if (!S.parts.length) return;
+  closePops(); openDrawer(false);
+  busy('PDF მზადდება…'); await nextFrame();
+  if (!logoImg) logoImg = await loadImg('data:image/png;base64,' + LOGO_B64);
+  try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+  RPT.file = $('fname').textContent || 'ნახაზი';
+  try { RPT.date = new Date().toLocaleDateString('ka-GE'); } catch (e) { RPT.date = new Date().toISOString().slice(0, 10); }
+  var savedHidden = S.hidden, savedExplode = S.explode, pages = [];
+  S.hidden = {}; S.explode = 0; applyExplode();
+  try {
+    // 1. cover: whole piece in isometric view
+    var solid = S.parts.filter(function (n) { return !n.room && n.type !== 3001; });
+    var P = newPage(RPT.file, 'ნაკეთობის სრული ხედი');
+    var im = await loadImg(snapshot(null, CW, 1180)); if (im) P.g.drawImage(im, MX, P.y, CW, 1180); P.y += 1200;
+    var tops = S.nodes.filter(function (n) { return n.obj && !n.parent && descParts(n).length; });
+    var loose = S.parts.filter(function (n) { return !n.parent && !n.room; });
+    var g = P.g; g.fillStyle = '#111'; g.font = '600 24px ' + PFONT;
+    if (S.size) { g.fillText('საერთო გაბარიტი: ' + sizeText(S.size) + ' მმ (სიგანე × სიმაღლე × სიღრმე)', MX, P.y); P.y += 40; }
+    g.font = '400 22px ' + PFONT; g.fillStyle = '#444';
+    g.fillText(solid.length + ' დეტალი · ' + tops.length + ' ბლოკი', MX, P.y);
+    pages.push(P);
+    // 2. one sheet per block
+    var units = tops.map(function (t) { return { title: blockName(t), node: t, list: descParts(t) }; });
+    if (loose.length) units.push({ title: 'ცალკე დეტალები', node: null, list: loose });
+    for (var u = 0; u < units.length; u++) {
+      var U = units[u];
+      busy('ბლოკი ' + (u + 1) + ' / ' + units.length); await nextFrame();
+      var sub = U.list.length + ' დეტალი' + (U.node && U.node.size ? ' · გაბარიტი ' + sizeText(U.node.size) + ' მმ' : '');
+      P = newPage(U.title, sub); pages.push(P);
+      var AN = analyseBlock(U.list), IH = 760;
+      var shot = snapshot(U.list, CW, IH, { want: true, margin: 1.22, ghost: AN.fronts });
+      im = await loadImg(shot.url);
+      if (im) { P.g.drawImage(im, MX, P.y, CW, IH); drawDims(P.g, shot.cam, MX, P.y, CW, IH, AN); P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, IH); }
+      P.y += IH + 12;
+      P.g.font = '400 18px ' + PFONT; P.g.fillStyle = '#555'; P.g.textBaseline = 'middle';
+      P.g.fillStyle = '#c2410c'; P.g.fillRect(MX, P.y + 2, 26, 4); P.g.fillStyle = '#555'; P.g.fillText('გარე გაბარიტი, მმ', MX + 34, P.y + 4);
+      P.g.fillStyle = '#1d4ed8'; P.g.fillRect(MX + 250, P.y + 2, 26, 4); P.g.fillStyle = '#555'; P.g.fillText('სუფთა მანძილი თაროებს / ტიხრებს შორის, მმ' + (AN.fronts.length ? ' · ფასადები გამჭვირვალედ' : ''), MX + 284, P.y + 4);
+      P.y += 30;
+      var rows = [], k = 1;
+      if (U.node) {
+        var own = U.node.children.filter(function (c) { return c.mesh; });
+        var br = blockRows(own, k); rows = rows.concat(br); k += br.length;
+        U.node.children.filter(function (c) { return c.obj && descParts(c).length; }).forEach(function (sb) {
+          rows.push({ section: blockName(sb) });
+          var sr = blockRows(descParts(sb), k); rows = rows.concat(sr); k += sr.length;
+        });
+      } else rows = blockRows(U.list, 1);
+      P = tablePages(pages, P, U.title, BLOCK_COLS, rows);
+    }
+    // 3. materials: summary, then one sheet per material
+    busy('მასალები…'); await nextFrame();
+    var byMat = {};
+    S.parts.forEach(function (n) {
+      if (n.room || !n.dims || n.type === 3001) return;
+      var m = n.mat || '—'; if (!byMat[m]) byMat[m] = { list: [], qty: 0, area: 0, len: 0, thick: {} };
+      var M2 = byMat[m]; M2.list.push(n); M2.qty++;
+      if (n.type === 4002) { M2.area += n.dims[0] * n.dims[1] / 1e6; M2.thick[num(n.dims[2])] = 1; } else M2.len += n.dims[0] / 1000;
+    });
+    var mats = Object.keys(byMat).sort(function (a, b) { return byMat[b].area - byMat[a].area || byMat[b].qty - byMat[a].qty; });
+    P = newPage('გამოყენებული მასალები', 'ჯამურად მთელ ნაკეთობაზე'); pages.push(P);
+    var MCOLS = [{ t: '№', w: 50, al: 'r', mono: true }, { t: 'მასალა', w: 520 }, { t: 'სისქე, მმ', w: 130, al: 'r', mono: true }, { t: 'რ-ბა', w: 110, al: 'r', mono: true }, { t: 'ფართი, მ²', w: 150, al: 'r', mono: true }, { t: 'სიგრძე, მ', w: 140, al: 'r', mono: true }];
+    var mrows = mats.map(function (m, i) { var M2 = byMat[m]; return [String(i + 1), m, Object.keys(M2.thick).join(', ') || '—', String(M2.qty), M2.area ? M2.area.toFixed(2) : '—', M2.len ? M2.len.toFixed(2) : '—']; });
+    P = tablePages(pages, P, 'გამოყენებული მასალები', MCOLS, mrows);
+    var DCOLS = [{ t: '№', w: 50, al: 'r', mono: true }, { t: 'სიგრძე', w: 110, al: 'r', mono: true }, { t: 'სიგანე', w: 110, al: 'r', mono: true }, { t: 'სისქე', w: 90, al: 'r', mono: true }, { t: 'რ-ბა', w: 80, al: 'r', mono: true }, { t: 'დეტალი', w: 230 }, { t: 'ბლოკი', w: 260, muted: true }, { t: 'პაზი', w: 170, muted: true }];
+    mats.forEach(function (m) {
+      var M2 = byMat[m], grp = {}, order = [];
+      M2.list.forEach(function (n) {
+        var key = dimText(n.dims) + '|' + cutText(n);
+        if (!grp[key]) { grp[key] = { n: n, q: 0, names: {}, blocks: {} }; order.push(key); }
+        var r = grp[key]; r.q++; r.names[niceName(n)] = 1; var b = blockOf(n); r.blocks[b ? blockName(b) : '—'] = 1;
+      });
+      order.sort(function (a, b) { var A = grp[a].n.dims, B = grp[b].n.dims; return B[0] * B[1] - A[0] * A[1]; });
+      var sub2 = M2.qty + ' დეტალი' + (M2.area ? ' · ' + M2.area.toFixed(2) + ' მ²' : '') + (M2.len ? ' · ' + M2.len.toFixed(2) + ' მ' : '');
+      P = newPage(m, sub2); pages.push(P);
+      var drows = order.map(function (key, i) { var r = grp[key], d = r.n.dims; return [String(i + 1), fmt(d[0]), fmt(d[1]), fmt(d[2]), String(r.q), Object.keys(r.names).join(', '), Object.keys(r.blocks).join(', '), cutText(r.n) || '']; });
+      P = tablePages(pages, P, m, DCOLS, drows);
+    });
+    // page numbers
+    pages.forEach(function (pg, i) { var gg = pg.g; gg.textBaseline = 'middle'; gg.fillStyle = '#888'; gg.font = '400 18px ' + PFONT; gg.textAlign = 'right'; gg.fillText((i + 1) + ' / ' + pages.length, PW - MX, PH - 50); gg.textAlign = 'left'; gg.fillText('ერგოსტილი · ' + RPT.file, MX, PH - 50); });
+    busy('PDF იკრიბება…'); await nextFrame();
+    var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', compress: true });
+    pages.forEach(function (pg, i) { if (i) doc.addPage(); doc.addImage(pg.c.toDataURL('image/jpeg', 0.86), 'JPEG', 0, 0, 210, 297); });
+    var blob = doc.output('blob');
+    S.hidden = savedHidden; S.explode = savedExplode; applyExplode(); applyLook();
+    busy(null);
+    await saveFile(blob, RPT.file.replace(/[\\\/:*?"<>|]+/g, ' ').trim() + ' - ერგოსტილი.pdf');
+  } catch (e) {
+    console.error(e); S.hidden = savedHidden; S.explode = savedExplode; applyExplode(); applyLook(); busy(null);
+    toast('PDF ვერ შეიქმნა: ' + (e.message || e));
+  }
+}
+function blobToB64(blob) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1]); }; r.onerror = rej; r.readAsDataURL(blob); }); }
+async function saveFile(blob, name) {
+  if (window.Android && window.Android.savePdf) { window.Android.savePdf(await blobToB64(blob), name); return; }
+  var dl = null;
+  try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) { dl = null; }
+  if (dl) {
+    try { await dl.save({ filename: name, data: blob }); toast('PDF შენახულია.'); }
+    catch (e) { if (!e || e.code !== 'declined') toast('PDF ვერ შეინახა' + (e && e.code ? ' (' + e.code + ')' : '') + '.'); }
+    return;
+  }
+  try { var u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); toast('PDF ჩამოიტვირთა.'); }
+  catch (e) { toast('აქ PDF-ის შენახვა ვერ ხერხდება. სცადე აპლიკაციიდან.'); }
+}
+$('bPdf').onclick = makeReport;
 
 /* ---------- loading ---------- */
 function openBytes(bytes, name) {

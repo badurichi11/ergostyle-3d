@@ -6,7 +6,15 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
+import android.provider.MediaStore;
+import android.content.ContentValues;
+import android.os.Build;
+import android.os.Environment;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import android.util.Base64;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -58,6 +66,7 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+        web.addJavascriptInterface(new Bridge(), "Android");
         web.loadUrl("file:///android_asset/index.html");
         pendingIntent = getIntent();
     }
@@ -112,6 +121,41 @@ public class MainActivity extends Activity {
         if (res == RESULT_OK && data != null && data.getData() != null) r = new Uri[]{data.getData()};
         pickCallback.onReceiveValue(r);
         pickCallback = null;
+    }
+
+    /** Called from the page: saves a generated PDF into Downloads and opens it. */
+    public class Bridge {
+        @JavascriptInterface
+        public void savePdf(String b64, String name) {
+            final byte[] data = Base64.decode(b64, Base64.DEFAULT);
+            final String fname = (name == null || name.isEmpty()) ? "ergostyle.pdf" : name.replaceAll("[\\\\/:*?\"<>|]", " ");
+            runOnUiThread(() -> {
+                try {
+                    Uri uri;
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        ContentValues v = new ContentValues();
+                        v.put(MediaStore.MediaColumns.DISPLAY_NAME, fname);
+                        v.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
+                        v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                        uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+                        try (OutputStream os = getContentResolver().openOutputStream(uri)) { os.write(data); }
+                    } else {
+                        File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+                        File f = new File(dir, fname);
+                        try (FileOutputStream fo = new FileOutputStream(f)) { fo.write(data); }
+                        Toast.makeText(MainActivity.this, "PDF შენახულია: " + f.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    Toast.makeText(MainActivity.this, "PDF შენახულია Downloads-ში: " + fname, Toast.LENGTH_LONG).show();
+                    Intent view = new Intent(Intent.ACTION_VIEW);
+                    view.setDataAndType(uri, "application/pdf");
+                    view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    try { startActivity(Intent.createChooser(view, "PDF-ის გახსნა")); } catch (Exception ignored) { }
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "PDF ვერ შეინახა: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        }
     }
 
     @Override
