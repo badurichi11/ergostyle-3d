@@ -1601,10 +1601,16 @@ function drawOrtho(g, X, Y, W, H, A, mode) {
   }
   if (mode === 'side') {
     // how far shelves / partitions sit back from the carcass front and from the back
-    var BN = A.boxNF, done = {};
+    // one label per distinct setback, with how many panels share it
+    var BN = A.boxNF, byF = {};
     A.shelves.concat(A.parts).forEach(function (it) {
-      var f = Math.round(BN.max.z - it.b.max.z), k = Math.round(it.b.min.y);
-      if (f >= 2 && !done['f' + f + '_' + k]) { done['f' + f + '_' + k] = 1; var p = P(it.b.max.z, (it.b.min.y + it.b.max.y) / 2); tag(g, p[0] + 4, p[1], '←' + f, BLUE, 14, 'l'); }
+      var f = Math.round(BN.max.z - it.b.max.z); if (f < 2) return;
+      (byF[f] = byF[f] || []).push(it);
+    });
+    Object.keys(byF).forEach(function (f) {
+      var L2 = byF[f], it = L2[0], p = P(it.b.max.z, (it.b.min.y + it.b.max.y) / 2);
+      L2.forEach(function (o) { var q = P(o.b.max.z, (o.b.min.y + o.b.max.y) / 2); g.fillStyle = BLUE; g.fillRect(q[0] - 2, q[1] - 2, 4, 4); });
+      tag(g, p[0] + 6, p[1], '←' + f + (L2.length > 1 ? ' (×' + L2.length + ')' : ''), BLUE, 14, 'l');
     });
   }
   if (mode === 'top') {
@@ -1823,11 +1829,35 @@ async function makeReport() {
     g.fillText(solid.length + ' დეტალი · ' + tops.length + ' ბლოკი', MX, P.y);
     pages.push(P);
     // 3. one block per sheet: picture with sizes, three flat views, parts table, drawings of parts with cuts
+    // ready-made library items (appliances, runners, sinks) are shown as one item, not taken apart
+    // a group counts as ready-made when it is a Bazis library model, or when every material in it is
+    // a stock Bazis (Russian-named) material rather than one of our own Georgian-named boards
+    var libCache = {};
+    function isLib(g0) {
+      if (!g0) return false;
+      if (g0.type === 4001 || g0.type === 4004) return true;
+      if (g0.idx in libCache) return libCache[g0.idx];
+      var ps = descParts(g0).filter(function (n) { return n.type !== 3001; });
+      var r = ps.length > 0 && ps.every(function (n) { return /[\u0400-\u04FF]/.test(n.mat || '') && !/[\u10D0-\u10FF]/.test(n.mat || ''); });
+      return (libCache[g0.idx] = r);
+    }
+    function inLib(n) { var p = n.parent; while (p) { if (isLib(p)) return true; p = p.parent; } return false; }
     var units = tops.map(function (t) { return { title: blockName(t), node: t, list: descParts(t) }; });
     if (loose.length) units.push({ title: 'ცალკე დეტალები', node: null, list: loose });
+    units = units.filter(function (x) { return !isLib(x.node); }).concat(units.filter(function (x) { return isLib(x.node); }));
     for (var u = 0; u < units.length; u++) {
       var U = units[u];
       busy('ბლოკი ' + (u + 1) + ' / ' + units.length); await nextFrame();
+      if (U.node && isLib(U.node)) {
+        var LS = U.node.size ? sizeText(U.node.size) + ' მმ' : '';
+        if (P.y + 560 > BOTTOM || !P.lib) { P = newPage('მზა ნაწარმი და ტექნიკა', 'არ იჭრება და არ იწყობა დეტალებად'); P.lib = true; pages.push(P); }
+        var LH2 = 420, lshot = await loadImg(snapshot(U.list, CW, LH2));
+        if (lshot) { P.g.drawImage(lshot, MX, P.y, CW, LH2); P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, LH2); }
+        P.g.fillStyle = '#111'; P.g.font = '700 24px ' + PFONT; P.g.textBaseline = 'middle'; P.g.fillText(U.title, MX + 14, P.y + 26);
+        P.g.fillStyle = '#c2410c'; P.g.font = '600 22px ' + PMONO; P.g.fillText('გაბარიტი: ' + LS, MX + 14, P.y + 58);
+        P.y += LH2 + 24;
+        continue;
+      }
       var AN = analyseBlock(U.list), BS = AN.box.getSize(new THREE.Vector3()), NS = AN.boxNF.getSize(new THREE.Vector3());
       var sub = U.list.length + ' დეტალი · გაბარიტი ' + sizeText(BS) + ' მმ';
       if (AN.fronts.length && sizeText(NS) !== sizeText(BS)) sub += ' · ყუთი/კორპუსი ფასადის გარეშე ' + sizeText(NS) + ' მმ';
@@ -1849,7 +1879,7 @@ async function makeReport() {
       P.y += VH + 20;
       var rows = [], draws = [], k = 1;
       function addRows(list) {
-        groupRows(list).forEach(function (r) {
+        groupRows(list.filter(function (n) { return !inLib(n); })).forEach(function (r) {
           var n = r.n, d = n.dims || [];
           rows.push([String(k), niceName(n), n.mat || '—', String(r.nodes.length), fmt(d[0]), fmt(d[1]), fmt(d[2]), (cutText(n) || '') + (needsDrawing(n) ? (cutText(n) ? ' ' : '') + 'ნახ.' : ''), bandCount(n) ? bandCount(n) + ' მხ.' : '—']);
           if (needsDrawing(n)) draws.push({ n: n, num: k });
@@ -1858,7 +1888,11 @@ async function makeReport() {
       }
       if (U.node) {
         addRows(U.node.children.filter(function (c) { return c.mesh; }));
-        U.node.children.filter(function (c) { return c.obj && descParts(c).length; }).forEach(function (sb) { rows.push({ section: blockName(sb) }); addRows(descParts(sb)); });
+        U.node.children.filter(function (c) { return c.obj && descParts(c).length; }).forEach(function (sb) {
+          rows.push({ section: blockName(sb) });
+          if (isLib(sb)) { var zz = sb.size ? [Math.round(sb.size.x), Math.round(sb.size.y), Math.round(sb.size.z)] : []; rows.push([String(k++), blockName(sb), 'მზა ნაწარმი / ფურნიტურა', '1', fmt(zz[0]), fmt(zz[1]), fmt(zz[2]), '', '—']); return; }
+          addRows(descParts(sb));
+        });
       } else addRows(U.list);
       P = tablePages(pages, P, U.title, BLOCK_COLS, rows);
       if (draws.length) {
@@ -1877,7 +1911,7 @@ async function makeReport() {
     busy('მასალები…'); await nextFrame();
     var byMat = {};
     S.parts.forEach(function (n) {
-      if (n.room || !n.dims || n.type === 3001) return;
+      if (n.room || !n.dims || n.type === 3001 || inLib(n) || (n.parent === null && false)) return;
       var m = n.mat || '—'; if (!byMat[m]) byMat[m] = { list: [], qty: 0, area: 0, len: 0, thick: {} };
       var M2 = byMat[m]; M2.list.push(n); M2.qty++;
       if (n.type === 4002) { M2.area += n.dims[0] * n.dims[1] / 1e6; M2.thick[num(n.dims[2])] = 1; } else M2.len += n.dims[0] / 1000;
