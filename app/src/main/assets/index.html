@@ -116,6 +116,31 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .mrow .nm{flex:1;min-width:0;font-size:13.5px}
 .mrow .ct{font-family:var(--f-data);font-size:12px;color:var(--muted)}
 .blk{border-bottom:1px solid var(--line)}
+.bline{display:flex;align-items:center}
+.bline .bhead{flex:1}
+.chk2{flex:none;width:44px;height:44px;border:0;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.chk2 span{width:20px;height:20px;border:1.8px solid var(--muted);border-radius:5px;display:flex;align-items:center;justify-content:center;background:var(--surface)}
+.chk2[aria-checked="true"] span{background:var(--accent);border-color:var(--accent)}
+.chk2[aria-checked="true"] span::after{content:"";width:9px;height:5px;border-left:2.2px solid var(--accent-ink);border-bottom:2.2px solid var(--accent-ink);transform:rotate(-45deg) translate(1px,-1px)}
+.blk.done .bn{color:var(--muted)}
+.ipanel{position:absolute;left:12px;bottom:62px;z-index:5;width:min(330px,calc(100% - 92px));max-height:42%;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.iphead{display:flex;align-items:center;gap:8px;padding:8px 6px 8px 12px;border-bottom:1px solid var(--line)}
+.iphead b{font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iphead span{font-family:var(--f-data);font-size:11.5px;color:var(--muted);white-space:nowrap}
+.iphead button{width:28px;height:28px;border:0;background:none;border-radius:7px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.iphead button svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.ipanel.mini #ipBody{display:none}
+.ipanel.mini .iphead{border-bottom:0}
+#ipBody{overflow:auto;padding:2px 0 6px}
+.iprow{display:flex;align-items:flex-start;gap:2px;padding:0 10px 0 0;border-bottom:1px solid var(--line)}
+.iprow:last-child{border-bottom:0}
+.iprow .chk2{width:40px;height:40px}
+.iprow .ipt{flex:1;min-width:0;padding:6px 0;display:grid;gap:1px}
+.iprow .ipn{font-size:13px;font-weight:500;display:flex;gap:6px;justify-content:space-between}
+.iprow .ipn i{font-style:normal;font-family:var(--f-data);font-size:12px;color:var(--ink);white-space:nowrap}
+.iprow .ipd{font-family:var(--f-data);font-size:11.5px}
+.iprow .ipm{font-size:11.5px;color:var(--muted);overflow-wrap:anywhere}
+.iprow.done .ipn,.iprow.done .ipd{color:var(--muted);text-decoration:line-through}
 .bhead{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;cursor:pointer;text-align:left;padding:10px 12px;min-width:0}
 .bhead:hover{background:var(--bg)}
 .bhead .bn{flex:1;min-width:0;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -251,6 +276,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
     </div>
     <div class="dbody" id="dbody"></div>
   </aside>
+  <section class="ipanel" id="ipanel" hidden aria-label="დეტალების ჩამონათვალი"><div class="iphead"><b id="ipTitle"></b><span id="ipCount"></span><button id="ipMin" aria-label="ჩაკეცვა"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button></div><div id="ipBody"></div></section>
   <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastAct" hidden></button></div>
   <button class="hchip" id="hchip" hidden></button>
   <div class="mode" id="modeTag" hidden></div>
@@ -613,7 +639,7 @@ function isChosen(n) { return S.chosen.indexOf(n) >= 0; }
 function clearModel() {
   root.traverse(function (o) { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== edgeMat && o.material !== edgeSel) o.material.dispose(); });
   root.clear();
-  S.parts = []; S.meshes = []; S.sel = null; S.chosen = []; S.hidden = {}; S.iso = null;
+  S.parts = []; S.meshes = []; S.sel = null; S.chosen = []; S.hidden = {}; S.iso = null; IP.list = null; renderIPanel();
 }
 
 function build(nodes) {
@@ -830,13 +856,15 @@ function hideNodes(list) {
   S.chosen = []; S.sel = null; applyLook(); renderSheet(); renderList();
   toast(list.length === 1 ? 'დეტალი დაიმალა.' : list.length + ' დეტალი დაიმალა.', 'დაბრუნება', function () { keys.forEach(function (k) { delete S.hidden[k]; }); applyLook(); renderList(); });
 }
-function isolateNodes(list) {
+function isolateNodes(list, title) {
+  var g0 = groupOf(list);
+  IP.list = list.slice(); IP.title = title || (g0 ? blockName(g0) : list.length === 1 ? niceName(list[0]) : list.length + ' დეტალი');
   S.iso = {}; list.forEach(function (n) { S.iso[n.idx] = true; });
   list.forEach(function (n) { delete S.hidden['p' + n.idx]; });
   S.chosen = []; S.sel = null; if (S.multi) setMulti(false); applyLook(); renderSheet(); renderList(); focusNodes(list);
-  toast('ჩანს მხოლოდ მონიშნული.', 'ყველას ჩვენება', showAll);
+  renderIPanel();
 }
-function showAll() { S.hidden = {}; S.iso = null; applyLook(); renderList(); renderSheet(); toast('ყველა დეტალი ისევ ჩანს.'); }
+function showAll() { S.hidden = {}; S.iso = null; IP.list = null; renderIPanel(); applyLook(); renderList(); renderSheet(); toast('ყველა დეტალი ისევ ჩანს.'); }
 function updateChip() {
   var c = $('hchip'), cnt = 0;
   Object.keys(S.hidden).forEach(function (k) { if (S.hidden[k]) cnt++; });
@@ -963,7 +991,7 @@ function setMeasure(on) {
   M.on = on; $('bMeasure').setAttribute('aria-pressed', on);
   if (on) { S.chosen = []; S.sel = null; applyLook(); if (S.explode) animExplode(0); }
   else clearMeasure();
-  updateModeTag(); renderSheet();
+  updateModeTag(); renderSheet(); renderIPanel();
 }
 
 /* ---------- sheet ---------- */
@@ -1151,8 +1179,10 @@ function renderBlocks(q) {
     var nm = blockName(g);
     if (q && nm.toLowerCase().indexOf(q) < 0) return;
     var depth = pathOf(g).length, parts = descParts(g), open = openBlk === g.idx;
-    h += '<div class="blk' + (open ? ' open' : '') + '"><button class="bhead" data-bopen="' + g.idx + '" style="padding-left:' + (12 + depth * 14) + 'px" aria-expanded="' + open + '">' + CHEV +
-      '<span class="bn">' + esc(nm) + '</span><span class="bc">' + parts.length + ' დეტ.</span></button>';
+    var bon = !!marks.b[g.id];
+    h += '<div class="blk' + (open ? ' open' : '') + (bon ? ' done' : '') + '"><div class="bline" style="padding-left:' + (depth * 14) + 'px">' + chk('data-bchk="' + g.id + '"', bon, nm) +
+      '<button class="bhead" data-bopen="' + g.idx + '" style="padding-left:0" aria-expanded="' + open + '">' + CHEV +
+      '<span class="bn">' + esc(nm) + '</span><span class="bc">' + parts.length + ' დეტ.</span></button></div>';
     if (open) {
       var own = g.children.filter(function (c) { return c.mesh; });
       var subs = g.children.filter(function (c) { return c.obj && c.children.length && descParts(c).length; });
@@ -1164,6 +1194,47 @@ function renderBlocks(q) {
   });
   $('dbody').innerHTML = h || '<div class="mrow" style="color:var(--muted)">' + (q ? 'ვერაფერი მოიძებნა.' : 'ამ ფაილში ბლოკები არ არის.') + '</div>';
 }
+/* ---------- checkmarks (remembered per file on this phone) ---------- */
+var marks = { b: {}, p: {} };
+function marksKey() { return 'ergo3d.marks.' + (S.fileKey || ''); }
+function loadMarks() { var m = store(marksKey()); marks = m && m.b ? m : { b: {}, p: {} }; }
+function saveMarks() { store(marksKey(), marks); }
+function chk(attr, on, label) { return '<button class="chk2" ' + attr + ' role="checkbox" aria-checked="' + !!on + '" aria-label="' + esc(label) + '"><span></span></button>'; }
+function groupRows(list) {
+  var rows = {}, order = [];
+  list.forEach(function (n) {
+    var k = niceName(n) + '|' + dimText(n.dims) + '|' + n.mat + '|' + cutText(n);
+    if (!rows[k]) { rows[k] = { n: n, nodes: [] }; order.push(k); }
+    rows[k].nodes.push(n);
+  });
+  return order.map(function (k) { var r = rows[k]; r.key = r.nodes.map(function (x) { return x.id; }).sort(function (a, b) { return a - b; }).join('-'); return r; });
+}
+var IP = { list: null, title: '' };
+function renderIPanel() {
+  var p = $('ipanel');
+  if (!IP.list || !S.iso || M.on) { p.hidden = true; return; }
+  var rows = groupRows(IP.list.filter(function (n) { return n.type !== 3001 || true; }));
+  var done = rows.filter(function (r) { return marks.p[r.key]; }).length;
+  $('ipTitle').textContent = IP.title;
+  $('ipCount').textContent = done + '/' + rows.length;
+  $('ipBody').innerHTML = rows.map(function (r) {
+    var n = r.n, on = !!marks.p[r.key];
+    return '<div class="iprow' + (on ? ' done' : '') + '">' + chk('data-pchk="' + r.key + '"', on, niceName(n)) +
+      '<div class="ipt"><span class="ipn">' + esc(niceName(n)) + '<i>' + r.nodes.length + ' ც</i></span>' +
+      (n.dims ? '<span class="ipd">' + dimText(n.dims) + ' მმ' + (cutText(n) ? ' · პაზი: ' + esc(cutText(n)) : '') + '</span>' : '') +
+      '<span class="ipm">' + esc(n.mat || '—') + '</span></div></div>';
+  }).join('');
+  p.hidden = false;
+}
+$('ipBody').addEventListener('click', function (e) {
+  var c = e.target.closest('[data-pchk]'); if (!c) return;
+  var k = c.dataset.pchk; if (marks.p[k]) delete marks.p[k]; else marks.p[k] = 1; saveMarks(); renderIPanel();
+});
+$('ipMin').onclick = function () {
+  var m = $('ipanel').classList.toggle('mini');
+  this.innerHTML = m ? '<svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg>';
+  this.setAttribute('aria-label', m ? 'გაშლა' : 'ჩაკეცვა');
+};
 function markList() { $('dbody').querySelectorAll('.row').forEach(function (r) { r.classList.toggle('sel', isChosen(S.nodes[+r.dataset.i])); }); }
 $('dbody').addEventListener('click', function (e) {
   var b = e.target.closest('[data-blk]');
@@ -1174,6 +1245,8 @@ $('dbody').addEventListener('click', function (e) {
     if (isHidden(tn)) { delete S.hidden[key]; if (S.iso) S.iso[tn.idx] = true; } else S.hidden[key] = true;
     applyLook(); renderList(); return;
   }
+  var bc = e.target.closest('[data-bchk]');
+  if (bc) { var bk = bc.dataset.bchk; if (marks.b[bk]) delete marks.b[bk]; else marks.b[bk] = 1; saveMarks(); renderList(); return; }
   var bo = e.target.closest('[data-bopen]');
   if (bo) {
     var bi = +bo.dataset.bopen; openBlk = openBlk === bi ? null : bi; renderList();
@@ -1181,7 +1254,7 @@ $('dbody').addEventListener('click', function (e) {
     return;
   }
   var bs = e.target.closest('[data-bshow]');
-  if (bs) { var bg = S.nodes[+bs.dataset.bshow]; descParts(bg).forEach(function (n) { delete S.hidden['p' + n.idx]; if (S.iso) S.iso[n.idx] = true; }); chooseMany(descParts(bg), true); openDrawer(false); return; }
+  if (bs) { var bg = S.nodes[+bs.dataset.bshow]; openDrawer(false); isolateNodes(descParts(bg), blockName(bg)); return; }
   var gs = e.target.closest('[data-gsel]');
   if (gs) { var g = S.nodes[+gs.dataset.gsel]; chooseMany(descParts(g).filter(function (n) { return !isHidden(n); }), true); if (innerWidth < 760) openDrawer(false); return; }
   var tr = e.target.closest('tr[data-k]');
@@ -1243,6 +1316,8 @@ function toast(m, act, fn) {
 function openBytes(bytes, name) {
   try {
     var nodes = B3D.load(bytes);
+    var hsh = 2166136261; for (var hi = 0; hi < bytes.length; hi += 37) { hsh ^= bytes[hi]; hsh = Math.imul(hsh, 16777619) >>> 0; }
+    S.fileKey = name + '|' + bytes.length + '|' + hsh.toString(36); loadMarks();
     $('fname').textContent = name;
     var cnt = nodes.filter(function (n) { return (n.type === 4002 || n.type === 2004 || n.type === 999) && !isRoom(n); }).length;
     $('fmeta').textContent = cnt + ' დეტალი · ' + nodes.filter(function (n) { return n.type === 1005 || n.type === 4001; }).length + ' ბლოკი';
