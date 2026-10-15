@@ -2043,15 +2043,62 @@ async function makeReport() {
     var F2 = F1 ? await fitShot(null, F1.rw, F1.rh, { room: hasRoom, cam: F1.cam, same: F1 }) : null;
     S.hidden = {};
     if (F2) {
-      var L2 = putShot(P.g, F2, MX, P.y, P.CW, AH2), placedB = [];
+      var L2 = putShot(P.g, F2, MX, P.y, P.CW, AH2), R = 22, top0 = P.y;
+      // where each number belongs (centre of the block)
+      var marks2 = [];
       numbered.forEach(function (U) {
         var bb = new THREE.Box3(); U.list.forEach(function (n) { if (n.mesh && !allFrontIdx[n.idx] && keep(n)) bb.expandByObject(n.mesh, true); });
         if (bb.isEmpty()) return;
-        var p = shotPt(F2, L2, bb.getCenter(new THREE.Vector3())), x = p[0], y = p[1], R = 22;
-        for (var t = 0; t < 12; t++) { if (!placedB.some(function (q) { return Math.hypot(q[0] - x, q[1] - y) < 2 * R + 4; })) break; y += (t % 2 ? -1 : 1) * (t + 1) * (R + 4); }
-        x = Math.max(MX + R + 2, Math.min(MX + P.CW - R - 2, x)); y = Math.max(P.y + R + 2, Math.min(P.y + AH2 - R - 2, y));
-        placedB.push([x, y]); numBadge(P.g, x, y, U.num, R);
+        var p = shotPt(F2, L2, bb.getCenter(new THREE.Vector3()));
+        marks2.push({ num: U.num, ax: p[0], ay: p[1], x: p[0], y: p[1] });
       });
+      // a number with room around it sits on its block; where blocks are close together the number goes
+      // out to the side, on the empty background, with a line pointing to its block
+      var pix = P.g.getImageData(MX, top0, Math.round(P.CW), Math.round(AH2)).data, PWd = Math.round(P.CW);
+      function blank(x, y) {
+        var c = 0, t = 0;
+        for (var dx = -R; dx <= R; dx += R / 2) for (var dy = -R; dy <= R; dy += R / 2) {
+          var px = Math.round(x - MX + dx), py = Math.round(y - top0 + dy); t++;
+          if (px < 0 || py < 0 || px >= PWd || py >= AH2) continue;
+          var i = (py * PWd + px) * 4; if (pix[i] > 244 && pix[i + 1] > 244 && pix[i + 2] > 244) c++;
+        }
+        return c / t;
+      }
+      function inside(x, y) { return x > MX + R + 2 && x < MX + P.CW - R - 2 && y > top0 + R + 2 && y < top0 + AH2 - R - 2; }
+      var placed2 = [];
+      function free(x, y, self) { return placed2.every(function (q) { return Math.hypot(q.x - x, q.y - y) >= 2 * R + 6; }) && marks2.every(function (m) { return m === self || Math.hypot(m.ax - x, m.ay - y) >= R + 8; }); }
+      var crowded = function (m) { return marks2.some(function (o) { return o !== m && Math.hypot(o.ax - m.ax, o.ay - m.ay) < 2 * R + 10; }); };
+      marks2.forEach(function (m) { m.out = crowded(m) || !inside(m.ax, m.ay); });
+      marks2.filter(function (m) { return !m.out; }).forEach(function (m) { placed2.push(m); });
+      // crowded numbers of one group go into a column beside the group, in the blocks' top-to-bottom order, so the lines never cross
+      var outs = marks2.filter(function (m) { return m.out; }), clusters = [];
+      outs.forEach(function (m) {
+        var c = clusters.filter(function (cl) { return cl.some(function (o) { return Math.hypot(o.ax - m.ax, o.ay - m.ay) < 4 * R + 40; }); })[0];
+        if (c) c.push(m); else clusters.push([m]);
+      });
+      clusters.forEach(function (cl) {
+        cl.sort(function (p, q) { return p.ay - q.ay || p.ax - q.ax; });
+        var x0 = Math.min.apply(null, cl.map(function (m) { return m.ax; })), x1 = Math.max.apply(null, cl.map(function (m) { return m.ax; }));
+        var my = cl.reduce(function (t, m) { return t + m.ay; }, 0) / cl.length, step = 2 * R + 10, H2 = (cl.length - 1) * step;
+        var y0 = Math.max(top0 + R + 4, Math.min(top0 + AH2 - R - 4 - H2, my - H2 / 2));
+        function colScore(x) {
+          if (!inside(x, y0) || !inside(x, y0 + H2)) return -1;
+          var t = 0; cl.forEach(function (m, i) { t += blank(x, y0 + i * step) + (free(x, y0 + i * step, m) ? 0 : -2); }); return t;
+        }
+        var best = null;
+        [110, 150, 200, 260, 330].forEach(function (d) {
+          [x0 - d, x1 + d].forEach(function (x) { var sc = colScore(x) - d / 600; if (sc >= 0 && (!best || sc > best.sc)) best = { x: x, sc: sc }; });
+        });
+        cl.forEach(function (m, i) { if (best) { m.x = best.x; m.y = y0 + i * step; } else m.out = false; placed2.push(m); });
+      });
+      marks2.forEach(function (m) {
+        if (!m.out) return;
+        var gg = P.g, dx = m.ax - m.x, dy = m.ay - m.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+        gg.strokeStyle = '#ffffff'; gg.lineWidth = 5; gg.beginPath(); gg.moveTo(m.x + ux * R, m.y + uy * R); gg.lineTo(m.ax, m.ay); gg.stroke();
+        gg.strokeStyle = '#c2410c'; gg.lineWidth = 2.2; gg.beginPath(); gg.moveTo(m.x + ux * R, m.y + uy * R); gg.lineTo(m.ax, m.ay); gg.stroke();
+        gg.fillStyle = '#c2410c'; gg.beginPath(); gg.moveTo(m.ax, m.ay); gg.lineTo(m.ax - ux * 14 - uy * 6, m.ay - uy * 14 + ux * 6); gg.lineTo(m.ax - ux * 14 + uy * 6, m.ay - uy * 14 - ux * 6); gg.closePath(); gg.fill();
+      });
+      marks2.forEach(function (m) { numBadge(P.g, m.x, m.y, m.num, R); });
     }
     P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, P.CW, AH2);
     P.y += AH2 + 28; g = P.g; g.fillStyle = '#111'; g.font = '600 20px ' + PFONT; g.textBaseline = 'middle';
