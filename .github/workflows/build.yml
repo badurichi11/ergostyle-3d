@@ -19,6 +19,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Stamp version into the page
+        run: |
+          V=$(grep -oP "versionName '\K[^']+" app/build.gradle)
+          sed -i "s/var APP_VER = '[^']*'/var APP_VER = '$V'/" app/src/main/assets/index.html
       - name: Build
         run: gradle :app:assembleDebug --no-daemon
       - name: Rename with version
@@ -49,6 +53,7 @@ jobs:
         run: |
           V=$(sed -n "s/.*versionName '\([^']*\)'.*/\1/p" app/build.gradle)
           echo "V=$V" >> "$GITHUB_ENV"
+          sed -i "s/var APP_VER = '[^']*'/var APP_VER = '$V'/" app/src/main/assets/index.html
           cd desktop && npm pkg set version="$V.0"
       - name: Copy the viewer into the desktop app
         shell: bash
