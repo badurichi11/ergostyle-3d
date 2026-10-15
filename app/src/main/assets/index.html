@@ -1277,14 +1277,14 @@ function partRows(list) {
     }).join('') + '</tbody></table></div>';
 }
 function renderBlocks(q) {
-  var h = '', groups = S.nodes.filter(function (n) { return n.obj && n.children.length && descParts(n).length; });
+  var h = '', groups = S.nodes.filter(function (n) { return n.obj && n.children.length && descParts(n).length; }), BNL = blockNumbers().map;
   groups.forEach(function (g) {
-    var nm = blockName(g);
+    var nm = blockName(g), bno = !g.parent && BNL[g.idx] ? BNL[g.idx] : 0;
     if (q && nm.toLowerCase().indexOf(q) < 0 && !descParts(g).some(function (n) { return matchQ(n, parseQ(q)); })) return;
     var depth = pathOf(g).length, parts = descParts(g), open = openBlk === g.idx;
     var bon = !!marks.b[g.id];
     h += '<div class="blk' + (open ? ' open' : '') + (bon ? ' done' : '') + '"><div class="bline" style="padding-left:' + (depth * 14) + 'px">' + chk('data-bchk="' + g.id + '"', bon, nm) +
-      '<button class="bhead" data-bshow="' + g.idx + '" style="padding-left:0"><span class="bn">' + esc(nm) + '</span><span class="bc">' + parts.length + ' დეტ.</span></button>' +
+      '<button class="bhead" data-bshow="' + g.idx + '" style="padding-left:0"><span class="bn">' + (bno ? '<b style="display:inline-block;min-width:22px;height:22px;line-height:22px;border-radius:11px;background:#c2410c;color:#fff;text-align:center;font-size:12px;margin-right:6px;padding:0 4px">' + bno + '</b>' : '') + esc(nm) + '</span><span class="bc">' + parts.length + ' დეტ.</span></button>' +
       '<button class="chk2 bexp" data-bopen="' + g.idx + '" aria-expanded="' + open + '" aria-label="ცხრილის ჩვენება">' + CHEV + '</button></div>';
     if (open) {
       var own = g.children.filter(function (c) { return c.mesh; });
@@ -1846,22 +1846,52 @@ function wrapLines(g, text, maxW) {
   if (line || !out.length) out.push(line);
   return out;
 }
-function newPage(title, sub) {
-  // compact header so the drawing gets most of the sheet
-  var c = document.createElement('canvas'); c.width = PW; c.height = PH;
-  var g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.fillRect(0, 0, PW, PH);
+function newPage(title, sub, land, badge) {
+  // compact header so the drawing gets most of the sheet; land = landscape sheet, badge = block number
+  var c = document.createElement('canvas'); c.width = land ? PH : PW; c.height = land ? PW : PH;
+  var W0 = c.width, CW0 = W0 - 2 * MX;
+  var g = c.getContext('2d'); g.fillStyle = '#ffffff'; g.fillRect(0, 0, W0, c.height);
   g.textBaseline = 'middle';
   if (logoImg) g.drawImage(logoImg, MX, 30, 46, 46);
   g.fillStyle = '#111'; g.font = '700 21px ' + PFONT; g.fillText('ერგოსტილი', MX + 58, 44);
   g.fillStyle = '#666'; g.font = '400 15px ' + PFONT; g.fillText(wrapLines(g, RPT.file, 640)[0], MX + 58, 66);
-  g.textAlign = 'right'; g.fillText(RPT.date, PW - MX, 44); g.textAlign = 'left';
-  g.strokeStyle = '#c2410c'; g.lineWidth = 2; g.beginPath(); g.moveTo(MX, 88); g.lineTo(PW - MX, 88); g.stroke();
-  var y = 118;
+  g.textAlign = 'right'; g.fillText(RPT.date, W0 - MX, 44); g.textAlign = 'left';
+  g.strokeStyle = '#c2410c'; g.lineWidth = 2; g.beginPath(); g.moveTo(MX, 88); g.lineTo(W0 - MX, 88); g.stroke();
+  var y = 118, tx = MX;
+  if (badge) { numBadge(g, MX + 24, y + 4, badge, 24); tx = MX + 60; }
   g.fillStyle = '#111'; g.font = '700 28px ' + PFONT;
-  wrapLines(g, title, CW).slice(0, 2).forEach(function (l) { g.fillText(l, MX, y); y += 34; });
-  if (sub) { g.fillStyle = '#555'; g.font = '400 16px ' + PFONT; wrapLines(g, sub, CW).slice(0, 2).forEach(function (l) { g.fillText(l, MX, y - 6); y += 22; }); }
-  return { c: c, g: g, y: y + 4 };
+  wrapLines(g, title, CW0 - (tx - MX)).slice(0, 2).forEach(function (l) { g.fillText(l, tx, y); y += 34; });
+  if (badge && y < 170) y = 170;
+  if (sub) { g.fillStyle = '#555'; g.font = '400 16px ' + PFONT; wrapLines(g, sub, CW0).slice(0, 2).forEach(function (l) { g.fillText(l, MX, y - 6); y += 22; }); }
+  return { c: c, g: g, y: y + 4, land: !!land, W: W0, CW: CW0, BOTTOM: c.height - 66 };
 }
+/* round orange tag with the block's number, the same on the layout sheet and on the block's own sheet */
+function numBadge(g, x, y, n, r) {
+  r = r || 20; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = '#c2410c'; g.fill();
+  g.lineWidth = 3; g.strokeStyle = '#ffffff'; g.stroke();
+  g.fillStyle = '#ffffff'; g.font = '700 ' + Math.round(r * 1.05) + 'px ' + PMONO; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(String(n), x, y + 1); g.textAlign = 'left';
+}
+/* render, then cut away the empty white border so the picture fills its frame as much as it can */
+async function fitShot(list, RW, RH, opt, extra) {
+  RW = Math.round(RW); RH = Math.round(RH);
+  var sh = snapshot(list, RW, RH, Object.assign({}, opt || {}, { want: true }));
+  var img = await loadImg(sh.url); if (!img) return null;
+  var c = document.createElement('canvas'); c.width = RW; c.height = RH; var g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  var d = g.getImageData(0, 0, RW, RH).data, x0 = RW, y0 = RH, x1 = -1, y1 = -1;
+  for (var y = 0; y < RH; y += 2) { var row = y * RW * 4; for (var x = 0; x < RW; x += 2) { var i = row + x * 4; if (d[i] < 238 || d[i + 1] < 238 || d[i + 2] < 238) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } } }
+  if (x1 < 0) { x0 = 0; y0 = 0; x1 = RW - 1; y1 = RH - 1; }
+  (extra || []).forEach(function (v) { var p = v.clone().project(sh.cam), px = (p.x + 1) / 2 * RW, py = (1 - p.y) / 2 * RH; x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py); });
+  var pad = Math.max(x1 - x0, y1 - y0) * 0.02 + 6;
+  x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(RW, x1 + pad); y1 = Math.min(RH, y1 + pad);
+  return { img: img, cam: sh.cam, rw: RW, rh: RH, cx: x0, cy: y0, cw: Math.max(1, x1 - x0), ch: Math.max(1, y1 - y0) };
+}
+function putShot(g, F, X, Y, W, H) {
+  var s = Math.min(W / F.cw, H / F.ch), dw = F.cw * s, dh = F.ch * s, dx = X + (W - dw) / 2, dy = Y + (H - dh) / 2;
+  g.drawImage(F.img, F.cx, F.cy, F.cw, F.ch, dx, dy, dw, dh);
+  return { ox: dx - F.cx * s, oy: dy - F.cy * s, w: F.rw * s, h: F.rh * s, s: s };
+}
+function shotPt(F, L, v) { var p = v.clone().project(F.cam); return [L.ox + (p.x + 1) / 2 * L.w, L.oy + (1 - p.y) / 2 * L.h]; }
 function drawTable(P, cols, rows, from, dry) {
   // compact rows; with dry = true only measures and returns the height the rows need
   var g = P.g, y = P.y, pad = 6, LH = 19, FS = 14, HH = 30, y0 = y;
@@ -1921,6 +1951,37 @@ function blockRows(list, start) {
     return [String(k++), niceName(n), n.mat || '—', String(r.nodes.length), fmt(d[0]), fmt(d[1]), fmt(d[2]), cutText(n) || '', bandCount(n) ? bandCount(n) + ' მხ.' : '—'];
   });
 }
+/* ready-made library items (appliances, runners, sinks): a Bazis library model, or a group whose every
+   material is a stock Bazis (Russian-named) material rather than one of our own Georgian-named boards */
+function isLibNode(g0) {
+  if (!g0) return false;
+  if (g0.type === 4001 || g0.type === 4004) return true;
+  if (g0._lib != null) return g0._lib;
+  var ps = descParts(g0).filter(function (n) { return n.type !== 3001; });
+  return (g0._lib = ps.length > 0 && ps.every(function (n) { return /[Ѐ-ӿ]/.test(n.mat || '') && !/[ა-ჿ]/.test(n.mat || ''); }));
+}
+function inLibPart(n) { var p = n.parent; while (p) { if (isLibNode(p)) return true; p = p.parent; } return false; }
+/* short numbers for the top blocks, read left to right as seen from the front (the PDF's layout view);
+   blocks standing one above the other are numbered top first */
+function blockNumbers() {
+  var dir = new THREE.Vector3(0.55, 0.42, 1).normalize(), right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize();
+  var L = [];
+  S.nodes.forEach(function (t) {
+    if (!t.obj || t.parent || isLibNode(t)) return;
+    var bb = new THREE.Box3();
+    descParts(t).forEach(function (n) { if (n.mesh && !n.room && n.type !== 3001 && !isExcl(n)) bb.expandByObject(n.mesh, true); });
+    if (bb.isEmpty()) return;
+    var c = bb.getCenter(new THREE.Vector3()), lo = 1e12, hi = -1e12;
+    [bb.min.x, bb.max.x].forEach(function (x) { [bb.min.y, bb.max.y].forEach(function (y) { [bb.min.z, bb.max.z].forEach(function (z) { var s = right.dot(new THREE.Vector3(x, y, z)); lo = Math.min(lo, s); hi = Math.max(hi, s); }); }); });
+    L.push({ t: t, x: right.dot(c), lo: lo, hi: hi, y: c.y });
+  });
+  L.sort(function (a, b) { return a.x - b.x; });
+  var cols = [];
+  L.forEach(function (b) { var c = cols[cols.length - 1]; if (c && b.x <= c.hi - 0.15 * (c.hi - c.lo)) c.list.push(b); else cols.push({ lo: b.lo, hi: b.hi, list: [b] }); });
+  var map = {}, k = 1;
+  cols.forEach(function (c) { c.list.sort(function (a, b) { return b.y - a.y; }).forEach(function (b) { map[b.t.idx] = k++; }); });
+  return { map: map };
+}
 async function makeReport() {
   if (!window.jspdf || !window.jspdf.jsPDF) { toast('PDF ვერ შეიქმნება: ბიბლიოთეკა ვერ ჩაიტვირთა.'); return; }
   if (!S.parts.length) return;
@@ -1943,34 +2004,67 @@ async function makeReport() {
     var P, im, g;
     var gb = new THREE.Box3(); solid.forEach(function (n) { if (n.mesh) gb.expandByObject(n.mesh, true); });
     var gsize = gb.isEmpty() ? null : gb.getSize(new THREE.Vector3());
-    P = newPage(RPT.file, hasRoom ? 'სრული ხედი ოთახში და კედლების გარეშე' : 'ნაკეთობა');
-    var CH = hasRoom ? Math.floor((BOTTOM - P.y - 110) / 2) : BOTTOM - P.y - 110;
-    if (hasRoom) { im = await loadImg(snapshot(null, CW, CH, { room: true })); if (im) { P.g.drawImage(im, MX, P.y, CW, CH); P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, CH); } P.y += CH + 12; }
-    im = await loadImg(snapshot(null, CW, CH)); if (im) { P.g.drawImage(im, MX, P.y, CW, CH); P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, CH); } P.y += CH + 30;
-    g = P.g; g.fillStyle = '#111'; g.font = '600 20px ' + PFONT; g.textBaseline = 'middle';
-    if (gsize) { g.fillText('საერთო გაბარიტი: ' + sizeText(gsize) + ' მმ (სიგანე × სიმაღლე × სიღრმე)', MX, P.y); P.y += 30; }
-    g.font = '400 17px ' + PFONT; g.fillStyle = '#444';
-    var exN = Object.keys(S.excl || {}).filter(function (m) { return S.excl[m] && S.parts.some(function (n) { return n.mat === m; }); });
-    g.fillText(solid.length + ' დეტალი · ' + tops.length + ' ბლოკი', MX, P.y);
-    pages.push(P);
-    // 2. one block per sheet: picture with sizes (fronts see-through), three flat views, parts table, drawings of parts with cuts
-    // ready-made library items (appliances, runners, sinks) are shown as one item, not taken apart
-    // a group counts as ready-made when it is a Bazis library model, or when every material in it is
-    // a stock Bazis (Russian-named) material rather than one of our own Georgian-named boards
-    var libCache = {};
-    function isLib(g0) {
-      if (!g0) return false;
-      if (g0.type === 4001 || g0.type === 4004) return true;
-      if (g0.idx in libCache) return libCache[g0.idx];
-      var ps = descParts(g0).filter(function (n) { return n.type !== 3001; });
-      var r = ps.length > 0 && ps.every(function (n) { return /[Ѐ-ӿ]/.test(n.mat || '') && !/[ა-ჿ]/.test(n.mat || ''); });
-      return (libCache[g0.idx] = r);
-    }
-    function inLib(n) { var p = n.parent; while (p) { if (isLib(p)) return true; p = p.parent; } return false; }
-    var units = tops.map(function (t) { return { title: blockName(t), node: t, list: descParts(t).filter(keep) }; });
-    if (loose.length) units.push({ title: 'ცალკე დეტალები', node: null, list: loose });
+    function inLib(n) { return inLibPart(n); }
+    var isLib = isLibNode;
+    // blocks with their numbers (same numbering as in the app's block list)
+    var BN0 = blockNumbers();
+    var units = tops.map(function (t) { return { title: blockName(t), node: t, num: BN0.map[t.idx] || 0, list: descParts(t).filter(keep) }; });
+    if (loose.length) units.push({ title: 'ცალკე დეტალები', node: null, num: 0, list: loose });
     units = units.filter(function (x) { return x.list.length; });
-    units = units.filter(function (x) { return !isLib(x.node); }).concat(units.filter(function (x) { return isLib(x.node); }));
+    units.forEach(function (U) { U.title = U.num ? 'ბლოკი ' + U.num + ' · ' + U.title : U.title; });
+    var normal = units.filter(function (x) { return !isLib(x.node); });
+    normal.sort(function (a, b) { return (a.num || 1e6) - (b.num || 1e6); });
+    units = normal.concat(units.filter(function (x) { return isLib(x.node); }));
+    var allFrontIdx = {};
+    normal.forEach(function (U) {
+      U.AN = analyseBlock(U.list, U.node ? U.node.obj : null, function (n) { return !inLib(n); });
+      U.AN.allFronts.forEach(function (f) { allFrontIdx[f.n.idx] = 1; });
+    });
+    // pages 1 and 2 turn sideways when the piece is wider than tall, so it comes out bigger
+    var land = gsize ? gsize.x + gsize.z * 0.55 > gsize.y * 1.05 : false;
+    // 1. the whole drawing as it opens in the app, as big as the sheet allows
+    busy('სრული ხედი…'); await nextFrame();
+    P = newPage(RPT.file, 'სრული ნახაზი', land); pages.push(P);
+    var AH1 = P.BOTTOM - P.y - 70;
+    var F1 = await fitShot(null, P.CW * 1.35, AH1 * 1.35, { room: hasRoom, margin: 1.0 });
+    if (F1) putShot(P.g, F1, MX, P.y, P.CW, AH1);
+    P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, P.CW, AH1);
+    P.y += AH1 + 28; g = P.g; g.fillStyle = '#111'; g.font = '600 20px ' + PFONT; g.textBaseline = 'middle';
+    if (gsize) g.fillText('საერთო გაბარიტი: ' + sizeText(gsize) + ' მმ (სიგანე × სიმაღლე × სიღრმე)', MX, P.y);
+    g.font = '400 17px ' + PFONT; g.fillStyle = '#444'; g.textAlign = 'right'; g.fillText(solid.length + ' დეტალი · ' + normal.filter(function (x) { return x.num; }).length + ' ბლოკი', MX + P.CW, P.y); g.textAlign = 'left';
+    // 2. the same without fronts and walls, every block marked with its number so the fitter sees what goes where
+    busy('ბლოკების განლაგება…'); await nextFrame();
+    var numbered = normal.filter(function (x) { return x.num; });
+    P = newPage('ბლოკების განლაგება', 'ფასადების და კედლების გარეშე · ნომერი გვიჩვენებს, რომელი ბლოკი სად დგას', land); pages.push(P);
+    var lcols = land ? 3 : 2, lrows = Math.ceil(numbered.length / lcols), legH = numbered.length ? 20 + lrows * 26 : 0;
+    var AH2 = Math.max(300, P.BOTTOM - P.y - legH - 8);
+    var bare = solid.filter(function (n) { return !allFrontIdx[n.idx]; }); if (!bare.length) bare = solid;
+    var F2 = await fitShot(bare, P.CW * 1.35, AH2 * 1.35, { margin: 1.0 });
+    if (F2) {
+      var L2 = putShot(P.g, F2, MX, P.y, P.CW, AH2), placedB = [];
+      numbered.forEach(function (U) {
+        var bb = new THREE.Box3(); U.list.forEach(function (n) { if (n.mesh && !allFrontIdx[n.idx] && keep(n)) bb.expandByObject(n.mesh, true); });
+        if (bb.isEmpty()) return;
+        var p = shotPt(F2, L2, bb.getCenter(new THREE.Vector3())), x = p[0], y = p[1], R = 22;
+        for (var t = 0; t < 12; t++) { if (!placedB.some(function (q) { return Math.hypot(q[0] - x, q[1] - y) < 2 * R + 4; })) break; y += (t % 2 ? -1 : 1) * (t + 1) * (R + 4); }
+        x = Math.max(MX + R + 2, Math.min(MX + P.CW - R - 2, x)); y = Math.max(P.y + R + 2, Math.min(P.y + AH2 - R - 2, y));
+        placedB.push([x, y]); numBadge(P.g, x, y, U.num, R);
+      });
+    }
+    P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, P.CW, AH2);
+    P.y += AH2 + 20;
+    if (numbered.length) {
+      var lw = P.CW / lcols;
+      numbered.forEach(function (U, i) {
+        var cx = MX + (i % lcols) * lw, cy = P.y + Math.floor(i / lcols) * 26;
+        numBadge(P.g, cx + 12, cy, U.num, 11);
+        P.g.fillStyle = '#111'; P.g.font = '400 15px ' + PFONT; P.g.textBaseline = 'middle'; P.g.textAlign = 'left';
+        var nm = U.node ? blockName(U.node) : ''; if (U.node && U.node.size) nm += '  (' + sizeText(U.node.size) + ')';
+        P.g.fillText(wrapLines(P.g, nm, lw - 40)[0], cx + 30, cy + 1);
+      });
+    }
+    // 3. one block per sheet: picture with sizes, three flat views, parts table, drawings of parts with cuts
+    // ready-made library items (appliances, runners, sinks) are shown as one item, not taken apart
     var libCol = 0;
     for (var u = 0; u < units.length; u++) {
       var U = units[u];
@@ -1979,15 +2073,16 @@ async function makeReport() {
         // ready-made items two to a row
         var LS = U.node.size ? sizeText(U.node.size) + ' მმ' : '', LW = (CW - 16) / 2, LH2 = 300;
         if (!P.lib || (libCol === 0 && P.y + LH2 > BOTTOM)) { P = newPage('მზა ნაწარმი და ტექნიკა', 'არ იჭრება და არ იწყობა დეტალებად'); P.lib = true; pages.push(P); libCol = 0; }
-        var lx = MX + libCol * (LW + 16), lshot = await loadImg(snapshot(U.list, LW, LH2));
-        if (lshot) { P.g.drawImage(lshot, lx, P.y, LW, LH2); P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(lx, P.y, LW, LH2); }
+        var lx = MX + libCol * (LW + 16), LF = await fitShot(U.list, LW * 1.3, (LH2 - 50) * 1.3);
+        if (LF) putShot(P.g, LF, lx + 6, P.y + 52, LW - 12, LH2 - 58);
+        P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(lx, P.y, LW, LH2);
         P.g.fillStyle = '#111'; P.g.font = '700 17px ' + PFONT; P.g.textBaseline = 'middle'; P.g.fillText(wrapLines(P.g, U.title, LW - 20)[0], lx + 10, P.y + 18);
         P.g.fillStyle = '#c2410c'; P.g.font = '600 15px ' + PMONO; P.g.fillText('გაბარიტი: ' + LS, lx + 10, P.y + 40);
         libCol++; if (libCol === 2) { libCol = 0; P.y += LH2 + 14; }
         continue;
       }
       if (libCol) { P.y += 300 + 14; libCol = 0; }
-      var AN = analyseBlock(U.list, U.node ? U.node.obj : null, function (n) { return !inLib(n); }), BS = AN.box.getSize(new THREE.Vector3()), NS = AN.boxNF.getSize(new THREE.Vector3());
+      var AN = U.AN, BS = AN.box.getSize(new THREE.Vector3()), NS = AN.boxNF.getSize(new THREE.Vector3());
       if (AN.extFronts.length) { var eb = AN.box.clone(); AN.extFronts.forEach(function (f) { eb.union(f.b); }); BS = eb.getSize(new THREE.Vector3()); }
       var sub = U.list.length + AN.extFronts.length + ' დეტალი · გაბარიტი ' + sizeText(BS) + ' მმ';
       if (AN.fronts.length && sizeText(NS) !== sizeText(BS)) sub += ' · კორპუსი ფასადის გარეშე ' + sizeText(NS) + ' მმ';
@@ -2017,60 +2112,45 @@ async function makeReport() {
         var fsec = { section: 'ფასადები — ' + AN.allFronts.length + ' ც (ნახაზზე არ ჩანს, იჭრება ცალკე)' }; fsec.front = true; rows.push(fsec);
         asFront = true; addRows(AN.allFronts.map(function (f) { return f.n; })); asFront = false;
       }
-      // fit picture, views, table and part drawings on this one sheet: shrink the pictures step by step
-      var tH = drawTable(P, BLOCK_COLS, rows, 0, true), nd = draws.length;
-      // small blocks share a sheet: two to a page when both fit
-      var LG = 44, HDR = 70, minNeed = HDR + 300 + 8 + LG + 200 + 12 + tH + 14 + (nd ? 30 + Math.ceil(nd / (nd <= 2 ? 2 : 4)) * 210 : 0);
-      if (P.blk && BOTTOM - P.y >= minNeed + 10) {
-        var gq = P.g; gq.strokeStyle = '#c2410c'; gq.lineWidth = 1.5; gq.setLineDash([8, 6]); gq.beginPath(); gq.moveTo(MX, P.y + 4); gq.lineTo(PW - MX, P.y + 4); gq.stroke(); gq.setLineDash([]);
-        gq.fillStyle = '#111'; gq.font = '700 26px ' + PFONT; gq.textBaseline = 'middle'; gq.fillText(wrapLines(gq, U.title, CW)[0], MX, P.y + 32);
-        gq.fillStyle = '#555'; gq.font = '400 16px ' + PFONT; gq.fillText(wrapLines(gq, sub, CW)[0], MX, P.y + 58); P.y += HDR;
-        P.blk = false;
-      } else {
-        P = newPage(U.title, sub); pages.push(P);
-        var half = Math.floor((BOTTOM - P.y - HDR - 10) / 2);
-        P.blk = minNeed - HDR <= half;
-      }
-      var free = P.blk ? Math.floor((BOTTOM - P.y - HDR - 10) / 2) : BOTTOM - P.y, lay = null;
-      var IHs = [560, 500, 440, 390, 340, 300, 260], VHs = [320, 290, 260, 240, 220, 200, 190];
-      for (var lv = 0; lv < IHs.length && !lay; lv++) {
-        for (var dc = nd <= 2 ? 2 : 3; dc <= (nd <= 2 ? 2 : 4) && !lay; dc++) {
-          var DH = nd ? Math.max(200, Math.min(nd <= 2 ? 380 : 320, IHs[lv] * (nd <= 2 ? 0.75 : 0.6))) : 0;
-          if (nd && dc > 2) DH = Math.min(DH, 300 - (dc - 3) * 50);
-          var dRowsN = nd ? Math.ceil(nd / dc) : 0, dH = nd ? 30 + dRowsN * (DH + 10) : 0;
-          var need = IHs[lv] + 8 + LG + VHs[lv] + 12 + tH + 14 + dH;
-          if (need <= free) lay = { IH: IHs[lv], VH: VHs[lv], dc: dc, DH: DH };
-        }
-      }
-      var spill = !lay;
-      if (!lay) lay = { IH: 260, VH: 190, dc: nd <= 2 ? 2 : 3, DH: nd <= 2 ? 360 : 300 };
-      if (!spill && !P.blk) { var used = lay.IH + 8 + LG + lay.VH + 12 + tH + 14 + (nd ? 30 + Math.ceil(nd / lay.dc) * (lay.DH + 10) : 0); lay.IH = Math.min(900, lay.IH + Math.max(0, free - used - 6)); }
-      var IH = lay.IH;
+      // every block gets its own sheet; whatever room the table and part drawings leave goes to the pictures
+      P = newPage(U.title, sub, false, U.num); pages.push(P);
+      var tH = drawTable(P, BLOCK_COLS, rows, 0, true), nd = draws.length, LG = 44;
+      var DC = nd <= 2 ? 2 : nd <= 6 ? 3 : 4, DHd = DC === 2 ? 360 : DC === 3 ? 300 : 250;
+      var dH = nd ? 30 + Math.ceil(nd / DC) * (DHd + 10) : 0, VW = (CW - 24) / 3;
+      var base = 8 + LG + 12 + tH + 14, avail = BOTTOM - P.y - base - dH;
+      if (avail < 520) avail = BOTTOM - P.y - base; // part drawings go to the next sheet
+      var IH, VH;
+      if (avail >= 520) { VH = Math.round(Math.min(VW * 1.6, Math.max(220, avail * 0.36))); IH = avail - VH; }
+      else { IH = 600; VH = 320; } // long table: pictures stay big, the table runs on to the next sheet
       var carcass = U.list.filter(function (n) { return !frontSet[n.idx]; }); if (!carcass.length) carcass = U.list;
-      var shot = snapshot(carcass, CW, IH, { want: true, margin: 1.18, frame: U.node ? U.node.obj : null });
-      im = await loadImg(shot.url);
-      if (im) { P.g.drawImage(im, MX, P.y, CW, IH); drawDims(P.g, shot.cam, MX, P.y, CW, IH, AN); P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, IH); }
+      var DB = AN.dimBox || AN.box, kk = Math.max(45, DB.getSize(new THREE.Vector3()).length() * 0.05) * 1.6, xb = DB.clone().expandByScalar(kk), ext = [];
+      [xb.min.x, xb.max.x].forEach(function (x) { [xb.min.y, xb.max.y].forEach(function (y) { [xb.min.z, xb.max.z].forEach(function (z) { ext.push(new THREE.Vector3(x, y, z).applyMatrix4(AN.W)); }); }); });
+      var FB = await fitShot(carcass, CW * 1.4, IH * 1.4, { margin: 1.18, frame: U.node ? U.node.obj : null }, ext);
+      if (FB) {
+        var LB = putShot(P.g, FB, MX, P.y, CW, IH);
+        P.g.save(); P.g.beginPath(); P.g.rect(MX, P.y, CW, IH); P.g.clip();
+        drawDims(P.g, FB.cam, LB.ox, LB.oy, LB.w, LB.h, AN);
+        P.g.restore();
+      }
+      P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, IH);
       P.y += IH + 8;
       P.g.font = '400 13px ' + PFONT; P.g.textBaseline = 'middle';
       P.g.fillStyle = '#c2410c'; P.g.fillRect(MX, P.y + 7, 22, 3); P.g.fillStyle = '#555'; P.g.fillText(AN.fronts.length ? 'კორპუსის გაბარიტი ფასადის გარეშე' : 'გარე გაბარიტი', MX + 28, P.y + 8);
       P.g.fillStyle = '#1d4ed8'; P.g.fillRect(MX + 470, P.y + 7, 22, 3); P.g.fillStyle = '#555'; P.g.fillText('სუფთა მანძილი, სიმაღლე ძირიდან (↑), გადაწევა წინიდან (←), მმ', MX + 498, P.y + 8);
       P.g.fillStyle = '#7c3aed'; P.g.fillRect(MX + 470, P.y + 27, 22, 3); P.g.fillStyle = '#555'; P.g.fillText('აწეული / ჩამოწეული გვერდი ან ტიხარი (+ ამოსულია, − ჩამოკლებულია)', MX + 498, P.y + 28);
       P.y += LG;
-      var VW = (CW - 24) / 3, VH = lay.VH;
       drawOrtho(P.g, MX, P.y, VW, VH, AN, 'front');
       drawOrtho(P.g, MX + VW + 12, P.y, VW, VH, AN, 'side');
       drawOrtho(P.g, MX + 2 * (VW + 12), P.y, VW, VH, AN, 'top');
       P.y += VH + 12;
-      var pBefore = P;
       P = tablePages(pages, P, U.title, BLOCK_COLS, rows);
-      if (P !== pBefore) P.blk = false;
       if (nd) {
-        var DC = lay.dc, DW = (CW - (DC - 1) * 12) / DC, DH2 = lay.DH;
-        if (P.y + 30 + DH2 > BOTTOM) { P = newPage(U.title, 'დეტალები ჭრებით და ამონაჭრებით'); pages.push(P); P.blk = false; }
+        var DW = (CW - (DC - 1) * 12) / DC, DH2 = DHd;
+        if (P.y + 30 + DH2 > BOTTOM) { P = newPage(U.title, 'დეტალები ჭრებით და ამონაჭრებით', false, U.num); pages.push(P); }
         else { P.g.fillStyle = '#111'; P.g.font = '700 16px ' + PFONT; P.g.textBaseline = 'middle'; P.g.fillText('დეტალები ჭრებით და ამონაჭრებით (ცხრილში „ნახ.“)', MX, P.y + 8); P.y += 26; }
         for (var di = 0; di < nd; di++) {
           var col = di % DC;
-          if (col === 0 && P.y + DH2 > BOTTOM) { P = newPage(U.title, 'დეტალები ჭრებით და ამონაჭრებით'); pages.push(P); P.blk = false; }
+          if (col === 0 && P.y + DH2 > BOTTOM) { P = newPage(U.title, 'დეტალები ჭრებით და ამონაჭრებით', false, U.num); pages.push(P); }
           drawPart(P.g, MX + col * (DW + 12), P.y, DW, DH2, draws[di].n, draws[di].num);
           if (col === DC - 1 || di === nd - 1) P.y += DH2 + 10;
         }
@@ -2097,7 +2177,7 @@ async function makeReport() {
       M2.list.forEach(function (n) {
         var key = dimText(n.dims) + '|' + cutText(n);
         if (!grp[key]) { grp[key] = { n: n, q: 0, names: {}, blocks: {} }; order.push(key); }
-        var r = grp[key]; r.q++; r.names[niceName(n)] = 1; var b = blockOf(n); r.blocks[b ? blockName(b) : '—'] = 1;
+        var r = grp[key]; r.q++; r.names[niceName(n)] = 1; var b = blockOf(n); r.blocks[b ? (BN0.map[b.idx] ? BN0.map[b.idx] + ' · ' : '') + blockName(b) : '—'] = 1;
       });
       order.sort(function (a, b) { var A = grp[a].n.dims, B = grp[b].n.dims; return B[0] * B[1] - A[0] * A[1]; });
       drows.push({ section: m + ' — ' + M2.qty + ' დეტალი' + (M2.area ? ' · ' + M2.area.toFixed(2) + ' მ²' : '') + (M2.len ? ' · ' + M2.len.toFixed(2) + ' მ' : '') });
@@ -2109,10 +2189,10 @@ async function makeReport() {
       P = tablePages(pages, P, 'დეტალები მასალების მიხედვით', DCOLS, drows);
     }
     // page numbers
-    pages.forEach(function (pg, i) { var gg = pg.g; gg.textBaseline = 'middle'; gg.fillStyle = '#888'; gg.font = '400 14px ' + PFONT; gg.textAlign = 'right'; gg.fillText((i + 1) + ' / ' + pages.length, PW - MX, PH - 40); gg.textAlign = 'left'; gg.fillText('ერგოსტილი · ' + RPT.file, MX, PH - 40); });
+    pages.forEach(function (pg, i) { var gg = pg.g, w0 = pg.c.width, h0 = pg.c.height; gg.textBaseline = 'middle'; gg.fillStyle = '#888'; gg.font = '400 14px ' + PFONT; gg.textAlign = 'right'; gg.fillText((i + 1) + ' / ' + pages.length, w0 - MX, h0 - 40); gg.textAlign = 'left'; gg.fillText('ერგოსტილი · ' + RPT.file, MX, h0 - 40); });
     busy('PDF იკრიბება…'); await nextFrame();
-    var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', compress: true });
-    pages.forEach(function (pg, i) { if (i) doc.addPage(); doc.addImage(pg.c.toDataURL('image/jpeg', 0.86), 'JPEG', 0, 0, 210, 297); });
+    var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: pages[0].land ? 'l' : 'p', compress: true });
+    pages.forEach(function (pg, i) { if (i) doc.addPage('a4', pg.land ? 'l' : 'p'); doc.addImage(pg.c.toDataURL('image/jpeg', 0.86), 'JPEG', 0, 0, pg.land ? 297 : 210, pg.land ? 210 : 297); });
     var blob = doc.output('blob');
     S.hidden = savedHidden; S.explode = savedExplode; applyExplode(); applyLook();
     busy(null);
