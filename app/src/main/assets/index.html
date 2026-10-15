@@ -1500,11 +1500,11 @@ function snapshot(list, w, h, opt) {
   var box = new THREE.Box3();
   (list || S.parts).forEach(function (n) { if (n.mesh && n.mesh.visible && (opt.room || !n.room)) box.expandByObject(n.mesh, true); });
   if (box.isEmpty()) box.set(new THREE.Vector3(-500, -500, -500), new THREE.Vector3(500, 500, 500));
-  var cam = new THREE.PerspectiveCamera(28, w / h, 5, 400000);
+  var cam = opt.cam ? opt.cam.clone() : new THREE.PerspectiveCamera(28, w / h, 5, 400000);
   var sph = box.getBoundingSphere(new THREE.Sphere()), dir = new THREE.Vector3(0.55, 0.42, 1).normalize();
   if (opt.frame) { var fq = new THREE.Quaternion(); opt.frame.getWorldQuaternion(fq); dir.applyQuaternion(fq); }
   var fv = 28 * Math.PI / 180, fh = 2 * Math.atan(Math.tan(fv / 2) * w / h);
-  cam.position.copy(sph.center).add(dir.multiplyScalar(sph.radius * (opt.margin || 1) / Math.sin(Math.min(fv, fh) / 2) * 1.02)); cam.lookAt(sph.center);
+  if (!opt.cam) { cam.position.copy(sph.center).add(dir.multiplyScalar(sph.radius * (opt.margin || 1) / Math.sin(Math.min(fv, fh) / 2) * 1.02)); cam.lookAt(sph.center); }
   cam.updateMatrixWorld(); cam.updateProjectionMatrix();
   renderer.setPixelRatio(1); renderer.setSize(w, h, false); renderer.render(scene, cam);
   var url = renderer.domElement.toDataURL('image/jpeg', 0.92);
@@ -1878,6 +1878,7 @@ async function fitShot(list, RW, RH, opt, extra) {
   var sh = snapshot(list, RW, RH, Object.assign({}, opt || {}, { want: true }));
   var img = await loadImg(sh.url); if (!img) return null;
   var c = document.createElement('canvas'); c.width = RW; c.height = RH; var g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  if (opt && opt.same) { var Q = opt.same; return { img: img, cam: sh.cam, rw: RW, rh: RH, cx: Q.cx, cy: Q.cy, cw: Q.cw, ch: Q.ch }; }
   var d = g.getImageData(0, 0, RW, RH).data, x0 = RW, y0 = RH, x1 = -1, y1 = -1;
   for (var y = 0; y < RH; y += 2) { var row = y * RW * 4; for (var x = 0; x < RW; x += 2) { var i = row + x * 4; if (d[i] < 238 || d[i + 1] < 238 || d[i + 2] < 238) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } } }
   if (x1 < 0) { x0 = 0; y0 = 0; x1 = RW - 1; y1 = RH - 1; }
@@ -2038,8 +2039,10 @@ async function makeReport() {
     P = newPage('ბლოკების განლაგება', 'ფასადების და კედლების გარეშე · ნომერი გვიჩვენებს, რომელი ბლოკი სად დგას', land); pages.push(P);
     var lcols = land ? 3 : 2, lrows = Math.ceil(numbered.length / lcols), legH = numbered.length ? 20 + lrows * 26 : 0;
     var AH2 = Math.max(300, P.BOTTOM - P.y - legH - 8);
-    var bare = solid.filter(function (n) { return !allFrontIdx[n.idx]; }); if (!bare.length) bare = solid;
-    var F2 = await fitShot(bare, P.CW * 1.35, AH2 * 1.35, { margin: 1.0 });
+    // fronts are hidden for this one picture; everything else (walls too) stays where it is on page 1
+    Object.keys(allFrontIdx).forEach(function (i) { S.hidden['p' + i] = true; });
+    var F2 = F1 ? await fitShot(null, F1.rw, F1.rh, { room: hasRoom, cam: F1.cam, same: F1 }) : null;
+    S.hidden = {};
     if (F2) {
       var L2 = putShot(P.g, F2, MX, P.y, P.CW, AH2), placedB = [];
       numbered.forEach(function (U) {
