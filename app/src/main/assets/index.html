@@ -2036,10 +2036,9 @@ async function makeReport() {
     // 2. the same without fronts and walls, every block marked with its number so the fitter sees what goes where
     busy('ბლოკების განლაგება…'); await nextFrame();
     var numbered = normal.filter(function (x) { return x.num; });
-    P = newPage('ბლოკების განლაგება', 'ფასადების და კედლების გარეშე · ნომერი გვიჩვენებს, რომელი ბლოკი სად დგას', land); pages.push(P);
-    var lcols = land ? 3 : 2, lrows = Math.ceil(numbered.length / lcols), legH = numbered.length ? 20 + lrows * 26 : 0;
-    var AH2 = Math.max(300, P.BOTTOM - P.y - legH - 8);
-    // fronts are hidden for this one picture; everything else (walls too) stays where it is on page 1
+    // page 2 is page 1 itself: same header, same picture size and place, same camera; only the fronts are off and the blocks carry numbers
+    P = newPage(RPT.file, 'სრული ნახაზი ფასადების გარეშე · ბლოკები დანომრილია', land); pages.push(P);
+    var AH2 = AH1;
     Object.keys(allFrontIdx).forEach(function (i) { S.hidden['p' + i] = true; });
     var F2 = F1 ? await fitShot(null, F1.rw, F1.rh, { room: hasRoom, cam: F1.cam, same: F1 }) : null;
     S.hidden = {};
@@ -2055,17 +2054,9 @@ async function makeReport() {
       });
     }
     P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, P.CW, AH2);
-    P.y += AH2 + 20;
-    if (numbered.length) {
-      var lw = P.CW / lcols;
-      numbered.forEach(function (U, i) {
-        var cx = MX + (i % lcols) * lw, cy = P.y + Math.floor(i / lcols) * 26;
-        numBadge(P.g, cx + 12, cy, U.num, 11);
-        P.g.fillStyle = '#111'; P.g.font = '400 15px ' + PFONT; P.g.textBaseline = 'middle'; P.g.textAlign = 'left';
-        var nm = U.node ? blockName(U.node) : ''; if (U.node && U.node.size) nm += '  (' + sizeText(U.node.size) + ')';
-        P.g.fillText(wrapLines(P.g, nm, lw - 40)[0], cx + 30, cy + 1);
-      });
-    }
+    P.y += AH2 + 28; g = P.g; g.fillStyle = '#111'; g.font = '600 20px ' + PFONT; g.textBaseline = 'middle';
+    if (gsize) g.fillText('საერთო გაბარიტი: ' + sizeText(gsize) + ' მმ (სიგანე × სიმაღლე × სიღრმე)', MX, P.y);
+    g.font = '400 17px ' + PFONT; g.fillStyle = '#444'; g.textAlign = 'right'; g.fillText(solid.length + ' დეტალი · ' + numbered.length + ' ბლოკი', MX + P.CW, P.y); g.textAlign = 'left';
     // 3. one block per sheet: picture with sizes, three flat views, parts table, drawings of parts with cuts
     // ready-made library items (appliances, runners, sinks) are shown as one item, not taken apart
     var libCol = 0;
