@@ -1942,7 +1942,7 @@ function tablePages(pages, P, title, cols, rows) {
 function fmt(v) { return v == null ? '—' : num(v); }
 function bandCount(n) { return n.butts.filter(function (b) { return b.mat; }).length; }
 var BLOCK_COLS = [
-  { t: '№', w: 50, al: 'r', mono: true }, { t: 'დეტალი', w: 240 }, { t: 'მასალა', w: 290, muted: true },
+  { t: 'პოზ.', w: 56, al: 'r', mono: true }, { t: 'დეტალი', w: 234 }, { t: 'მასალა', w: 290, muted: true },
   { t: 'რ-ბა', w: 70, al: 'r', mono: true }, { t: 'სიგრძე', w: 100, al: 'r', mono: true }, { t: 'სიგანე', w: 100, al: 'r', mono: true },
   { t: 'სისქე', w: 80, al: 'r', mono: true }, { t: 'პაზი', w: 80, muted: true }, { t: 'წიბო', w: 90, al: 'r', mono: true }
 ];
@@ -1983,6 +1983,45 @@ function blockNumbers() {
   var map = {}, k = 1;
   cols.forEach(function (c) { c.list.sort(function (a, b) { return b.y - a.y; }).forEach(function (b) { map[b.t.idx] = k++; }); });
   return { map: map };
+}
+/* position number of every part on the block picture = its row (პოზ.) in the parts table,
+   placed on the part's front edge so the fitter sees where each part goes */
+function posLabels(g, F, L, list, posOf, frameObj, X, Y, W, H) {
+  var inv = new THREE.Matrix4(), Wm = new THREE.Matrix4();
+  if (frameObj) { frameObj.updateMatrixWorld(true); Wm.copy(frameObj.matrixWorld); inv.copy(Wm).invert(); }
+  var R = 13, items = [];
+  list.forEach(function (n) {
+    var k = posOf[n.idx]; if (!k || !n.mesh) return;
+    var geo = n.mesh.geometry; if (!geo.boundingBox) geo.computeBoundingBox();
+    n.mesh.updateMatrixWorld(true);
+    var b = geo.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, n.mesh.matrixWorld)), sz = b.getSize(new THREE.Vector3());
+    var c = b.getCenter(new THREE.Vector3());
+    // thin panels: label on the edge that faces the viewer (front); a back panel keeps its middle
+    var pt = sz.z <= 45 && sz.x > 80 && sz.y > 80 ? new THREE.Vector3(c.x, c.y + sz.y * 0.18, b.max.z) : new THREE.Vector3(c.x, c.y, b.max.z);
+    var p = shotPt(F, L, pt.applyMatrix4(Wm));
+    items.push({ k: k, ax: p[0], ay: p[1], x: p[0], y: p[1], area: sz.x * sz.y });
+  });
+  // big parts first, small ones move a little when they would cover another number
+  items.sort(function (a, b) { return b.area - a.area; });
+  var placed = [];
+  items.forEach(function (it) {
+    var tries = [[0, 0], [0, -1], [0, 1], [1, 0], [-1, 0], [1, -1], [-1, 1], [0, -2], [0, 2], [2, 0], [-2, 0]], ok = null;
+    for (var t = 0; t < tries.length && !ok; t++) {
+      var x = it.ax + tries[t][0] * (2 * R + 3), y = it.ay + tries[t][1] * (2 * R + 3);
+      if (x < X + R || x > X + W - R || y < Y + R || y > Y + H - R) continue;
+      if (placed.every(function (q) { return Math.hypot(q.x - x, q.y - y) >= 2 * R + 2; })) ok = [x, y];
+    }
+    if (!ok) ok = [it.ax, it.ay];
+    it.x = ok[0]; it.y = ok[1]; placed.push(it);
+  });
+  items.forEach(function (it) {
+    if (it.x !== it.ax || it.y !== it.ay) { g.strokeStyle = '#0f766e'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(it.x, it.y); g.lineTo(it.ax, it.ay); g.stroke(); g.fillStyle = '#0f766e'; g.beginPath(); g.arc(it.ax, it.ay, 3, 0, Math.PI * 2); g.fill(); }
+  });
+  items.forEach(function (it) {
+    g.beginPath(); g.arc(it.x, it.y, R, 0, Math.PI * 2); g.fillStyle = '#ffffff'; g.fill();
+    g.lineWidth = 2.2; g.strokeStyle = '#0f766e'; g.stroke();
+    g.fillStyle = '#0f766e'; g.font = '700 14px ' + PMONO; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(it.k), it.x, it.y + 1); g.textAlign = 'left';
+  });
 }
 async function makeReport() {
   if (!window.jspdf || !window.jspdf.jsPDF) { toast('PDF ვერ შეიქმნება: ბიბლიოთეკა ვერ ჩაიტვირთა.'); return; }
@@ -2129,7 +2168,7 @@ async function makeReport() {
       var sub = U.list.length + AN.extFronts.length + ' დეტალი · გაბარიტი ' + sizeText(BS) + ' მმ';
       if (AN.fronts.length && sizeText(NS) !== sizeText(BS)) sub += ' · კორპუსი ფასადის გარეშე ' + sizeText(NS) + ' მმ';
       // parts table rows (fronts included, marked) and parts that need their own drawing
-      var rows = [], draws = [], k = 1, frontSet = {};
+      var rows = [], draws = [], k = 1, frontSet = {}, posOf = {};
       AN.allFronts.forEach(function (f) { frontSet[f.n.idx] = 1; });
       var asFront = false;
       function addRows(list) {
@@ -2139,6 +2178,7 @@ async function makeReport() {
           if (fr) row.front = true;
           rows.push(row);
           if (needsDrawing(n)) draws.push({ n: n, num: k });
+          if (!fr) r.nodes.forEach(function (q) { posOf[q.idx] = k; });
           k++;
         });
       }
@@ -2172,6 +2212,7 @@ async function makeReport() {
         var LB = putShot(P.g, FB, MX, P.y, CW, IH);
         P.g.save(); P.g.beginPath(); P.g.rect(MX, P.y, CW, IH); P.g.clip();
         drawDims(P.g, FB.cam, LB.ox, LB.oy, LB.w, LB.h, AN);
+        posLabels(P.g, FB, LB, carcass, posOf, U.node ? U.node.obj : null, MX, P.y, CW, IH);
         P.g.restore();
       }
       P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, IH);
@@ -2179,6 +2220,7 @@ async function makeReport() {
       P.g.font = '400 13px ' + PFONT; P.g.textBaseline = 'middle';
       P.g.fillStyle = '#c2410c'; P.g.fillRect(MX, P.y + 7, 22, 3); P.g.fillStyle = '#555'; P.g.fillText(AN.fronts.length ? 'კორპუსის გაბარიტი ფასადის გარეშე' : 'გარე გაბარიტი', MX + 28, P.y + 8);
       P.g.fillStyle = '#1d4ed8'; P.g.fillRect(MX + 470, P.y + 7, 22, 3); P.g.fillStyle = '#555'; P.g.fillText('სუფთა მანძილი, სიმაღლე ძირიდან (↑), გადაწევა წინიდან (←), მმ', MX + 498, P.y + 8);
+      P.g.strokeStyle = '#0f766e'; P.g.lineWidth = 2; P.g.beginPath(); P.g.arc(MX + 9, P.y + 28, 8, 0, Math.PI * 2); P.g.stroke(); P.g.fillStyle = '#555'; P.g.fillText('დეტალის პოზიცია (ცხრილის „პოზ.“)', MX + 28, P.y + 28);
       P.g.fillStyle = '#7c3aed'; P.g.fillRect(MX + 470, P.y + 27, 22, 3); P.g.fillStyle = '#555'; P.g.fillText('აწეული / ჩამოწეული გვერდი ან ტიხარი (+ ამოსულია, − ჩამოკლებულია)', MX + 498, P.y + 28);
       P.y += LG;
       drawOrtho(P.g, MX, P.y, VW, VH, AN, 'front');
