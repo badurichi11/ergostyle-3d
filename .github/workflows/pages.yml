@@ -1,0 +1,36 @@
+name: Web version (iPhone)
+
+on:
+  push:
+    branches: [main, iphone-web]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Put the viewer and the home-screen files together
+        run: |
+          V=$(grep -oP "versionName '\K[^']+" app/build.gradle)
+          mkdir -p site
+          cp app/src/main/assets/* site/
+          cp web/* site/
+          sed -i "s/var APP_VER = '[^']*'/var APP_VER = '$V'/" site/index.html
+          sed -i "s/ergostyle-3d-VERSION/ergostyle-3d-$V-${GITHUB_SHA::7}/" site/sw.js
+          touch site/.nojekyll
+          ls -la site
+      - name: Publish to the gh-pages branch (GitHub Pages serves it)
+        run: |
+          cd site
+          git init -q -b gh-pages
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add -A && git commit -q -m "web $GITHUB_SHA"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" gh-pages

@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>body{margin:0;font-size:14px}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
 <title>ერგოსტილი 3D ნახაზი</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ergostyle 3D">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#e9edf1">
 <style>
 /* Layout: full-screen 3D workbench; top bar, right tool rail, bottom sheet for the tapped part, left drawer for the parts list and cut list */
 :root{
@@ -1476,10 +1483,10 @@ $('bExp0').onclick = function () { animExplode(0); };
 $('bExp1').onclick = function () { animExplode(0.5); };
 
 var tt;
-function toast(m, act, fn) {
+function toast(m, act, fn, ms) {
   var t = $('toast'), b = $('toastAct'); $('toastMsg').textContent = m;
   b.hidden = !act; if (act) { b.textContent = act; b.onclick = function () { t.hidden = true; fn(); }; }
-  t.hidden = false; clearTimeout(tt); tt = setTimeout(function () { t.hidden = true; }, act ? 5000 : 3200);
+  t.hidden = false; clearTimeout(tt); tt = setTimeout(function () { t.hidden = true; }, ms || (act ? 5000 : 3200));
 }
 
 /* ---------- PDF report: cover, one sheet per block, material sheets ---------- */
@@ -2296,6 +2303,16 @@ async function saveFile(blob, name) {
     catch (e) { if (!e || e.code !== 'declined') toast('PDF ვერ შეინახა' + (e && e.code ? ' (' + e.code + ')' : '') + '.'); }
     return;
   }
+  if (IOS) {
+    var file = null; try { file = new File([blob], name, { type: 'application/pdf' }); } catch (e) { file = null; }
+    var openIt = function () { var u2 = URL.createObjectURL(blob); var w = window.open(u2, '_blank'); if (!w) location.href = u2; };
+    var shareIt = function () {
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: name }).catch(function (e) { if (e && e.name !== 'AbortError') openIt(); });
+      else openIt();
+    };
+    toast('PDF მზადაა.', 'შენახვა / გაზიარება', shareIt, 60000);
+    return;
+  }
   try { var u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); toast('PDF ჩამოიტვირთა.'); }
   catch (e) { toast('აქ PDF-ის შენახვა ვერ ხერხდება. სცადე აპლიკაციიდან.'); }
 }
@@ -2327,6 +2344,8 @@ function openFile(f) {
   r.onerror = function () { toast('ფაილის წაკითხვა ვერ მოხერხდა.'); };
   r.readAsArrayBuffer(f);
 }
+var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (IOS) $('fileIn').removeAttribute('accept');
 $('fileIn').addEventListener('change', function () { openFile(this.files[0]); this.value = ''; });
 var dragN = 0;
 window.addEventListener('dragenter', function (e) { e.preventDefault(); dragN++; $('drop').hidden = false; });
@@ -2351,5 +2370,8 @@ loop();
 openBytes(b64bytes(SAMPLE_B64), SAMPLE_NAME);
 </script>
 
+<script>
+if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js').catch(function () {}); }
+</script>
 </body>
 </html>
