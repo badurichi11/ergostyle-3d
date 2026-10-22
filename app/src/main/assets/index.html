@@ -1497,7 +1497,7 @@ function snapshot(list, w, h, opt) {
   if (list) { S.iso = {}; list.forEach(function (n) { S.iso[n.idx] = true; }); } else S.iso = null;
   S.showRoom = !!opt.room; S.chosen = []; S.sel = null; S.hits = null; S.display = 'solid'; S.edges = true;
   applyLook(); renderer.clippingPlanes = []; scene.background = new THREE.Color(0xffffff);
-  if (opt.ghost) opt.ghost.forEach(function (n) { if (n.mesh) { n.mesh.material.opacity = 0.2; n.mesh.material.depthWrite = false; n.mesh.renderOrder = 3; } });
+  if (opt.ghost) opt.ghost.forEach(function (n) { if (n.mesh) { n.mesh.material.opacity = opt.ghostOp || 0.2; n.mesh.material.depthWrite = false; n.mesh.renderOrder = 3; } });
   var box = new THREE.Box3();
   (list || S.parts).forEach(function (n) { if (n.mesh && n.mesh.visible && (opt.room || !n.room)) box.expandByObject(n.mesh, true); });
   if (box.isEmpty()) box.set(new THREE.Vector3(-500, -500, -500), new THREE.Vector3(500, 500, 500));
@@ -2225,7 +2225,7 @@ async function makeReport() {
           if (fr) row.front = true;
           rows.push(row);
           if (needsDrawing(n)) draws.push({ n: n, num: k });
-          if (!fr) r.nodes.forEach(function (q) { posOf[q.idx] = k; });
+          r.nodes.forEach(function (q) { posOf[q.idx] = k; });
           k++;
         });
       }
@@ -2247,14 +2247,15 @@ async function makeReport() {
       var DC = nd <= 2 ? 2 : nd <= 6 ? 3 : 4, DHd = DC === 2 ? 360 : DC === 3 ? 300 : 250;
       var dH = nd ? 30 + Math.ceil(nd / DC) * (DHd + 10) : 0, VW = (CW - 24) / 3;
       var base = 8 + LG + 12 + tH + 14, avail = BOTTOM - P.y - base - dH;
-      if (avail < 520) avail = BOTTOM - P.y - base; // part drawings go to the next sheet
+      if (avail < 900) avail = BOTTOM - P.y - base; // part drawings go to the next sheet
       var IH, VH;
-      if (avail >= 520) { VH = Math.round(Math.min(VW * 1.6, Math.max(220, avail * 0.36))); IH = avail - VH; }
-      else { IH = 600; VH = 320; } // long table: pictures stay big, the table runs on to the next sheet
-      var carcass = U.list.filter(function (n) { return !frontSet[n.idx]; }); if (!carcass.length) carcass = U.list;
+      if (avail >= 900) { VH = Math.round(Math.min(VW * 1.6, Math.max(220, avail * 0.36))); IH = avail - VH; }
+      else { IH = 820; VH = 330; } // long table: pictures stay big, the table runs on to the next sheet
+      // the whole block, doors included; doors drawn see-through so the shelves, sizes and positions behind them still read
+      var fronts0 = AN.allFronts.map(function (f) { return f.n; }), carcass = U.list.concat(AN.extFronts.map(function (f) { return f.n; }));
       var DB = AN.dimBox || AN.box, kk = Math.max(45, DB.getSize(new THREE.Vector3()).length() * 0.05) * 1.6, xb = DB.clone().expandByScalar(kk), ext = [];
       [xb.min.x, xb.max.x].forEach(function (x) { [xb.min.y, xb.max.y].forEach(function (y) { [xb.min.z, xb.max.z].forEach(function (z) { ext.push(new THREE.Vector3(x, y, z).applyMatrix4(AN.W)); }); }); });
-      var FB = await fitShot(carcass, CW * 1.4, IH * 1.4, { margin: 1.18, frame: U.node ? U.node.obj : null }, ext);
+      var FB = await fitShot(carcass, CW * 1.4, IH * 1.4, { margin: 1.18, frame: U.node ? U.node.obj : null, ghost: fronts0, ghostOp: 0.72 }, ext);
       if (FB) {
         var LB = putShot(P.g, FB, MX, P.y, CW, IH);
         P.g.save(); P.g.beginPath(); P.g.rect(MX, P.y, CW, IH); P.g.clip();
