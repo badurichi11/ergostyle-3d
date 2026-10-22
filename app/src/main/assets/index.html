@@ -1667,6 +1667,7 @@ function facadeNote(g, X, Y, W, A) {
   var grp = {}, order = [];
   A.allFronts.forEach(function (it) { var n = it.n, k = dimText(n.dims) + '|' + n.mat; if (!grp[k]) { grp[k] = { n: n, q: 0 }; order.push(k); } grp[k].q++; });
   var lines = order.map(function (k) { var r = grp[k]; return 'ფასადი' + (r.q > 1 ? ' ×' + r.q : '') + ': ' + dimText(r.n.dims) + ' მმ'; });
+  lines.unshift('ფასადები (ნახაზზე არ ჩანს):');
   var mats = order.map(function (k) { return grp[k].n.mat; }).filter(function (m, i, a) { return m && a.indexOf(m) === i; });
   g.font = '600 15px ' + PMONO; var w = 0; lines.forEach(function (l) { w = Math.max(w, g.measureText(l).width); });
   g.font = '400 13px ' + PFONT; mats.forEach(function (m) { w = Math.max(w, Math.min(360, g.measureText(m).width)); });
@@ -2261,6 +2262,7 @@ async function makeReport() {
         drawDims(P.g, FB.cam, LB.ox, LB.oy, LB.w, LB.h, AN);
         posLabels(P.g, FB, LB, carcass, posOf, U.node ? U.node.obj : null, MX, P.y, CW, IH);
         P.g.restore();
+        facadeNote(P.g, MX, P.y, CW, AN);
       }
       P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, CW, IH);
       P.y += IH + 8;
