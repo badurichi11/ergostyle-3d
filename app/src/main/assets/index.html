@@ -1262,7 +1262,7 @@ function cutText(n) {
 function partRows(list) {
   var rows = {}, order = [];
   list.forEach(function (n) {
-    var k = niceName(n) + '|' + dimText(n.dims) + '|' + n.mat + '|' + cutText(n);
+    var k = niceName(n) + '|' + dimText(n.dims) + '|' + n.mat + '|' + cutText(n) + '|' + shapeKey(n);
     if (!rows[k]) { rows[k] = { n: n, q: 0 }; order.push(k); }
     rows[k].q++;
   });
@@ -1357,10 +1357,18 @@ function marksKey() { return 'ergo3d.marks.' + (S.fileKey || ''); }
 function loadMarks() { var m = store(marksKey()); marks = m && m.b ? m : { b: {}, p: {} }; }
 function saveMarks() { store(marksKey(), marks); }
 function chk(attr, on, label) { return '<button class="chk2" ' + attr + ' role="checkbox" aria-checked="' + !!on + '" aria-label="' + esc(label) + '"><span></span></button>'; }
+// outline of a shaped part (angled / cut corner, curve), so it is never counted together with a plain rectangle of the same size
+function shapeKey(n) {
+  if (!needsDrawing(n)) return '';
+  var xs = [], ys = [];
+  n.segs.forEach(function (g) { [[g.x1, g.y1], [g.x2, g.y2]].forEach(function (p) { if (p[0] != null) { xs.push(p[0]); ys.push(p[1]); } }); });
+  var mx = Math.min.apply(null, xs), my = Math.min.apply(null, ys);
+  return n.segs.map(function (g) { return g.t + [g.x1, g.y1, g.x2, g.y2].map(function (v, i) { return v == null ? '' : Math.round(v - (i % 2 ? my : mx)); }).join(','); }).sort().join(';') + '#' + (n.cuts || []).length;
+}
 function groupRows(list) {
   var rows = {}, order = [];
   list.forEach(function (n) {
-    var k = niceName(n) + '|' + dimText(n.dims) + '|' + n.mat + '|' + cutText(n);
+    var k = niceName(n) + '|' + dimText(n.dims) + '|' + n.mat + '|' + cutText(n) + '|' + shapeKey(n);
     if (!rows[k]) { rows[k] = { n: n, nodes: [] }; order.push(k); }
     rows[k].nodes.push(n);
   });
@@ -2310,7 +2318,7 @@ async function makeReport() {
     mats.forEach(function (m) {
       var M2 = byMat[m], grp = {}, order = [];
       M2.list.forEach(function (n) {
-        var key = dimText(n.dims) + '|' + cutText(n);
+        var key = dimText(n.dims) + '|' + cutText(n) + '|' + shapeKey(n);
         if (!grp[key]) { grp[key] = { n: n, q: 0, names: {}, blocks: {} }; order.push(key); }
         var r = grp[key]; r.q++; r.names[niceName(n)] = 1; var b = blockOf(n); r.blocks[b ? (BN0.map[b.idx] ? BN0.map[b.idx] + ' · ' : '') + blockName(b) : '—'] = 1;
       });
