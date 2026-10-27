@@ -2218,30 +2218,31 @@ async function makeReport() {
       // parts table rows (fronts included, marked) and parts that need their own drawing
       var rows = [], draws = [], k = 1, frontSet = {}, posOf = {};
       AN.allFronts.forEach(function (f) { frontSet[f.n.idx] = 1; });
-      var asFront = false;
+      // parts as Bazis has them in the block; a door / drawer front stays in its place in the list, named "ფასადი"
       function addRows(list) {
-        groupRows(list.filter(function (n) { return !inLib(n) && keep(n) && (asFront ? true : !frontSet[n.idx]); })).forEach(function (r) {
-          var n = r.n, d = n.dims || [], fr = !!asFront;
-          var row = [String(k), niceName(n), n.mat || '—', String(r.nodes.length), fmt(d[0]), fmt(d[1]), fmt(d[2]), (cutText(n) || '') + (needsDrawing(n) ? (cutText(n) ? ' ' : '') + 'ნახ.' : ''), bandCount(n) ? bandCount(n) + ' მხ.' : '—'];
+        var L = list.filter(function (n) { return !inLib(n) && keep(n); });
+        groupRows(L.filter(function (n) { return !frontSet[n.idx]; })).forEach(function (r) { addRow(r, false); });
+        groupRows(L.filter(function (n) { return frontSet[n.idx]; })).forEach(function (r) { addRow(r, true); });
+      }
+      function addRow(r, fr) {
+        var n = r.n, d = n.dims || [];
+          var row = [String(k), fr ? 'ფასადი' : niceName(n), n.mat || '—', String(r.nodes.length), fmt(d[0]), fmt(d[1]), fmt(d[2]), (cutText(n) || '') + (needsDrawing(n) ? (cutText(n) ? ' ' : '') + 'ნახ.' : ''), bandCount(n) ? bandCount(n) + ' მხ.' : '—'];
           if (fr) row.front = true;
           rows.push(row);
           if (needsDrawing(n)) draws.push({ n: n, num: k });
           if (!fr) r.nodes.forEach(function (q) { posOf[q.idx] = k; });
           k++;
-        });
       }
       if (U.node) {
         addRows(U.node.children.filter(function (c) { return c.mesh; }));
-        U.node.children.filter(function (c) { return c.obj && descParts(c).some(function (n) { return keep(n) && !frontSet[n.idx]; }); }).forEach(function (sb) {
+        U.node.children.filter(function (c) { return c.obj && descParts(c).some(keep); }).forEach(function (sb) {
           rows.push({ section: blockName(sb) });
           if (isLib(sb)) { var zz = sb.size ? [Math.round(sb.size.x), Math.round(sb.size.y), Math.round(sb.size.z)] : []; rows.push([String(k++), blockName(sb), 'მზა ნაწარმი / ფურნიტურა', '1', fmt(zz[0]), fmt(zz[1]), fmt(zz[2]), '', '—']); return; }
           addRows(descParts(sb));
         });
       } else addRows(U.list);
-      if (AN.allFronts.length) {
-        var fsec = { section: 'ფასადები — ' + AN.allFronts.length + ' ც (ნახაზზე არ ჩანს, იჭრება ცალკე)' }; fsec.front = true; rows.push(fsec);
-        asFront = true; addRows(AN.allFronts.map(function (f) { return f.n; })); asFront = false;
-      }
+      // doors Bazis keeps outside the block, but standing in front of it, are listed with it
+      if (AN.extFronts.length) addRows(AN.extFronts.map(function (f) { return f.n; }));
       // every block gets its own sheet; whatever room the table and part drawings leave goes to the pictures
       P = newPage(U.title, sub, false, U.num); pages.push(P);
       var tH = drawTable(P, BLOCK_COLS, rows, 0, true), nd = draws.length, LG = 44;
