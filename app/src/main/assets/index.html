@@ -1534,7 +1534,7 @@ function analyseBlock(list, frameObj, extOk) {
     var s = it.s;
     if (s.y <= T && s.x > 80 && s.z > 80) shelves.push(it);
     else if (s.x <= T && s.y > 80 && s.z > 80) parts.push(it);
-    else if (s.z <= T && s.x > 80 && s.y > 80 && it.b.max.z >= CZ - 3 && it.b.min.z >= CZ - 3) fronts.push(it); // in front of the carcass, not a panel flush inside it (drawer box front)
+    else if (s.z <= T && s.x > 80 && s.y > 80 && it.b.max.z >= CZ - 3 && it.b.min.z >= CZ - 3) fronts.push(it); // wholly in front of the carcass: a door or drawer facade (a drawer box's own front sits inside and stays) // in front of the carcass, not a panel flush inside it (drawer box front)
   });
   function ov(a0, a1, b0, b1) { return Math.min(a1, b1) - Math.max(a0, b0); }
   var gaps = [], seen = {};
@@ -1596,6 +1596,7 @@ function analyseBlock(list, frameObj, extOk) {
       var b = wbox(n), sz = b.getSize(new THREE.Vector3());
       if (!(sz.z <= T && sz.x > 80 && sz.y > 80)) return;
       if (sz.x > 1300 && sz.y > 1300) return; // wall sized, not a door
+      if (b.min.x < BN.min.x - 20 || b.max.x > BN.max.x + 20 || b.min.y < BN.min.y - 20 || b.max.y > BN.max.y + 20) return; // a facade fits inside the block's outline (a few mm smaller); a bigger panel belongs elsewhere
       if (b.max.z < BN.max.z - 25 || b.min.z > BN.max.z + 60) return;
       if (n.parent && !descParts(n.parent).every(function (q) { var qs = wbox(q).getSize(new THREE.Vector3()); return qs.z <= T; })) return; // fronts of another real block stay with that block
       var ox = ov(b.min.x, b.max.x, BN.min.x, BN.max.x), oy = ov(b.min.y, b.max.y, BN.min.y, BN.max.y);
