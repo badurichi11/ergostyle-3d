@@ -758,7 +758,7 @@ function baseColor(n) {
   return matColor(n.mat);
 }
 function isHidden(n) {
-  if (isExcl(n)) return true;
+  if (isExcl(n) && !S.showExcl) return true; // removed materials come back only on the PDF's first two pictures
   if (S.iso && !S.iso[n.idx]) return true;
   var p = n.parent; while (p) { if (S.hidden[p.idx]) return true; p = p.parent; }
   return !!S.hidden['p' + n.idx];
@@ -1984,11 +1984,11 @@ function bestViewDir() {
   var key = (S.fileKey || '') + '|' + Object.keys(S.excl || {}).filter(function (m) { return S.excl[m]; }).sort().join(',');
   if (S.viewKey === key && S.viewDir) return S.viewDir.clone();
   var base = new THREE.Vector3(0.55, 0.42, 1).normalize(), best = base, bestSc = -1;
-  var parts = S.parts.filter(function (n) { return n.mesh && !isExcl(n) && n.type !== 3001; });
-  var solid = parts.filter(function (n) { return !n.room; });
+  var parts = S.parts.filter(function (n) { return n.mesh && n.type !== 3001; });
+  var solid = parts.filter(function (n) { return !n.room && !isExcl(n); });
   if (solid.length && renderer) {
     var sv = { iso: S.iso, room: S.showRoom, chosen: S.chosen, sel: S.sel, hits: S.hits, clip: renderer.clippingPlanes, pr: renderer.getPixelRatio(), bg: scene.background };
-    S.iso = null; S.showRoom = true; S.chosen = []; S.sel = null; S.hits = null; applyLook(); renderer.clippingPlanes = [];
+    S.iso = null; S.showRoom = true; S.showExcl = true; S.chosen = []; S.sel = null; S.hits = null; applyLook(); renderer.clippingPlanes = [];
     var swap = [];
     parts.forEach(function (n, i) {
       var m = n.mesh; if (!m.visible) return;
@@ -2016,7 +2016,7 @@ function bestViewDir() {
     }
     lights.forEach(function (o) { o.visible = true; });
     swap.forEach(function (r) { r[0].material.dispose(); r[0].material = r[1]; r[0].userData.edges.visible = r[2]; });
-    S.iso = sv.iso; S.showRoom = sv.room; S.chosen = sv.chosen; S.sel = sv.sel; S.hits = sv.hits;
+    S.iso = sv.iso; S.showRoom = sv.room; S.showExcl = false; S.chosen = sv.chosen; S.sel = sv.sel; S.hits = sv.hits;
     renderer.clippingPlanes = sv.clip; scene.background = sv.bg; renderer.setPixelRatio(sv.pr); resize(); applyLook();
   }
   S.viewKey = key; S.viewDir = best.clone();
@@ -2098,7 +2098,8 @@ async function makeReport() {
     var solid = S.parts.filter(function (n) { return !n.room && n.type !== 3001 && keep(n); });
     var tops = S.nodes.filter(function (n) { return n.obj && !n.parent && descParts(n).some(keep); });
     var loose = S.parts.filter(function (n) { return !n.parent && !n.room && keep(n); });
-    var hasRoom = S.parts.some(function (n) { return n.room && keep(n); });
+    // pages 1 and 2 show the drawing whole, with the removed materials (walls, floor…) in place; nothing after them does
+    var hasRoom = S.parts.some(function (n) { return n.room; });
     var P, im, g;
     var gb = new THREE.Box3(); solid.forEach(function (n) { if (n.mesh) gb.expandByObject(n.mesh, true); });
     var gsize = gb.isEmpty() ? null : gb.getSize(new THREE.Vector3());
@@ -2124,7 +2125,10 @@ async function makeReport() {
     busy('სრული ხედი…'); await nextFrame();
     P = newPage(RPT.file, 'სრული ნახაზი', land); pages.push(P);
     var AH1 = P.BOTTOM - P.y - 70;
-    var F1 = await fitShot(null, P.CW * 1.35, AH1 * 1.35, { room: hasRoom, margin: 1.0, dir: bestViewDir() });
+    var dir1 = bestViewDir();
+    S.showExcl = true;
+    var F1 = await fitShot(null, P.CW * 1.35, AH1 * 1.35, { room: hasRoom, margin: 1.0, dir: dir1 });
+    S.showExcl = false;
     if (F1) putShot(P.g, F1, MX, P.y, P.CW, AH1);
     P.g.strokeStyle = '#d3dae2'; P.g.lineWidth = 1; P.g.strokeRect(MX, P.y, P.CW, AH1);
     P.y += AH1 + 28; g = P.g; g.fillStyle = '#111'; g.font = '600 20px ' + PFONT; g.textBaseline = 'middle';
@@ -2137,8 +2141,9 @@ async function makeReport() {
     P = newPage(RPT.file, 'სრული ნახაზი ფასადების გარეშე · ბლოკები დანომრილია', land); pages.push(P);
     var AH2 = AH1;
     Object.keys(allFrontIdx).forEach(function (i) { S.hidden['p' + i] = true; });
+    S.showExcl = true;
     var F2 = F1 ? await fitShot(null, F1.rw, F1.rh, { room: hasRoom, cam: F1.cam, same: F1 }) : null;
-    S.hidden = {};
+    S.showExcl = false; S.hidden = {};
     if (F2) {
       var L2 = putShot(P.g, F2, MX, P.y, P.CW, AH2), R = 22, top0 = P.y;
       // where each number belongs (centre of the block)
@@ -2337,11 +2342,11 @@ async function makeReport() {
     var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: pages[0].land ? 'l' : 'p', compress: true });
     pages.forEach(function (pg, i) { if (i) doc.addPage('a4', pg.land ? 'l' : 'p'); doc.addImage(pg.c.toDataURL('image/jpeg', 0.86), 'JPEG', 0, 0, pg.land ? 297 : 210, pg.land ? 210 : 297); });
     var blob = doc.output('blob');
-    S.hidden = savedHidden; S.explode = savedExplode; applyExplode(); applyLook();
+    S.showExcl = false; S.hidden = savedHidden; S.explode = savedExplode; applyExplode(); applyLook();
     busy(null);
     await saveFile(blob, RPT.file.replace(/[\\\/:*?"<>|]+/g, ' ').trim() + ' - ერგოსტილი.pdf');
   } catch (e) {
-    console.error(e); S.hidden = savedHidden; S.explode = savedExplode; applyExplode(); applyLook(); busy(null);
+    console.error(e); S.showExcl = false; S.hidden = savedHidden; S.explode = savedExplode; applyExplode(); applyLook(); busy(null);
     toast('PDF ვერ შეიქმნა: ' + (e.message || e));
   }
 }
