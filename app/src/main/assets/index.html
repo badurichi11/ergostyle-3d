@@ -692,7 +692,7 @@ function isChosen(n) { return S.chosen.indexOf(n) >= 0; }
 function clearModel() {
   root.traverse(function (o) { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== edgeMat && o.material !== edgeSel) o.material.dispose(); });
   root.clear();
-  S.parts = []; S.meshes = []; S.sel = null; S.chosen = []; S.hidden = {}; S.iso = null; IP.list = null; renderIPanel();
+  S.parts = []; S.meshes = []; S.sel = null; S.chosen = []; S.hidden = {}; S.iso = null; S.looseMap = null; IP.list = null; renderIPanel();
 }
 
 function build(nodes) {
@@ -1277,11 +1277,11 @@ function partRows(list) {
     }).join('') + '</tbody></table></div>';
 }
 function renderBlocks(q) {
-  var h = '', groups = S.nodes.filter(function (n) { return n.obj && n.children.length && descParts(n).length; }), BNL = blockNumbers().map;
+  var h = '', groups = S.nodes.filter(function (n) { return n.obj && n.children.length && descParts(n).length; }), BNL = blockNumbers().map, LSB = looseInBlocks().byBlock;
   groups.forEach(function (g) {
     var nm = blockName(g), bno = !g.parent && BNL[g.idx] ? BNL[g.idx] : 0;
     if (q && nm.toLowerCase().indexOf(q) < 0 && !descParts(g).some(function (n) { return matchQ(n, parseQ(q)); })) return;
-    var depth = pathOf(g).length, parts = descParts(g), open = openBlk === g.idx;
+    var adp = (!g.parent && LSB[g.idx]) || [], depth = pathOf(g).length, parts = descParts(g).concat(adp), open = openBlk === g.idx;
     var bon = !!marks.b[g.id];
     h += '<div class="blk' + (open ? ' open' : '') + (bon ? ' done' : '') + '"><div class="bline" style="padding-left:' + (depth * 14) + 'px">' + chk('data-bchk="' + g.id + '"', bon, nm) +
       '<button class="bhead" data-bshow="' + g.idx + '" style="padding-left:0"><span class="bn">' + (bno ? '<b style="display:inline-block;min-width:22px;height:22px;line-height:22px;border-radius:11px;background:#c2410c;color:#fff;text-align:center;font-size:12px;margin-right:6px;padding:0 4px">' + bno + '</b>' : '') + esc(nm) + '</span><span class="bc">' + parts.length + ' დეტ.</span></button>' +
@@ -1291,6 +1291,7 @@ function renderBlocks(q) {
       var subs = g.children.filter(function (c) { return c.obj && c.children.length && descParts(c).length; });
       h += '<div class="bbox">' + (g.size ? '<div class="bsize">გაბარიტი: ' + sizeText(g.size) + ' მმ</div>' : '') + partRows(own);
       subs.forEach(function (sb) { h += '<div class="bsub">' + esc(blockName(sb)) + '</div>' + partRows(descParts(sb)); });
+      if (adp.length) h += '<div class="bsub">' + LOOSE_T + '</div>' + partRows(adp);
       h += '</div>';
     }
     h += '</div>';
@@ -1419,7 +1420,7 @@ $('dbody').addEventListener('click', function (e) {
     return;
   }
   var bs = e.target.closest('[data-bshow]');
-  if (bs) { var bg = S.nodes[+bs.dataset.bshow]; openDrawer(false); isolateNodes(descParts(bg), blockName(bg)); return; }
+  if (bs) { var bg = S.nodes[+bs.dataset.bshow]; openDrawer(false); isolateNodes(descParts(bg).concat((!bg.parent && looseInBlocks().byBlock[bg.idx]) || []), blockName(bg)); return; }
   var gs = e.target.closest('[data-gsel]');
   if (gs) { var g = S.nodes[+gs.dataset.gsel]; chooseMany(descParts(g).filter(function (n) { return !isHidden(n); }), true); if (innerWidth < 760) openDrawer(false); return; }
   var tr = e.target.closest('tr[data-k]');
@@ -1610,6 +1611,17 @@ function analyseBlock(list, frameObj, extOk) {
       var ox = ov(b.min.x, b.max.x, BN.min.x, BN.max.x), oy = ov(b.min.y, b.max.y, BN.min.y, BN.max.y);
       if (ox <= 0 || oy <= 0 || ox * oy < 0.5 * sz.x * sz.y) return;
       ext.push({ n: n, b: b, s: sz, ext: true });
+    });
+    // a panel standing inside the carcass with the doors in front of it (a closed niche, an inner panel) is a part of the block, not a facade
+    ext = ext.filter(function (e) {
+      if (e.b.min.z >= BN.max.z - 3) return true;
+      var cov = 0;
+      ext.concat(fronts).forEach(function (f) {
+        if (f === e || f.b.min.z < e.b.max.z - 1) return;
+        var ox = ov(e.b.min.x, e.b.max.x, f.b.min.x, f.b.max.x), oy = ov(e.b.min.y, e.b.max.y, f.b.min.y, f.b.max.y);
+        if (ox > 0 && oy > 0) cov += ox * oy;
+      });
+      return cov < 0.5 * e.s.x * e.s.y;
     });
   }
   var allFronts = fronts.concat(ext);
@@ -2022,6 +2034,37 @@ function bestViewDir() {
   S.viewKey = key; S.viewDir = best.clone();
   return best.clone();
 }
+/* parts drawn in Bazis outside every block but standing inside a block's carcass (shelves, inner panels, a plinth
+   between the sides): the fitter builds them with that block, so they are listed and shown with it */
+function looseInBlocks() {
+  var key = (S.fileKey || '') + '|' + Object.keys(S.excl || {}).filter(function (m) { return S.excl[m]; }).sort().join(',');
+  if (S.looseKey === key && S.looseMap) return S.looseMap;
+  var R = { byBlock: {}, of: {} };
+  var tops = S.nodes.filter(function (t) { return t.obj && !t.parent && !isLibNode(t); }).map(function (t) {
+    var list = descParts(t).filter(function (n) { return !isExcl(n); });
+    return list.length ? { t: t, AN: analyseBlock(list, t.obj, function (n) { return !inLibPart(n); }) } : null;
+  }).filter(Boolean);
+  var front = {};
+  tops.forEach(function (b) { b.AN.allFronts.forEach(function (f) { front[f.n.idx] = 1; }); });
+  S.parts.forEach(function (n) {
+    if (n.parent || !n.mesh || n.room || n.type === 3001 || isExcl(n) || front[n.idx]) return;
+    var g = n.mesh.geometry; if (!g.boundingBox) g.computeBoundingBox();
+    n.mesh.updateMatrixWorld(true);
+    var best = null, bestF = 0;
+    tops.forEach(function (b) {
+      var inv = new THREE.Matrix4().copy(b.t.obj.matrixWorld).invert();
+      var bx = g.boundingBox.clone().applyMatrix4(inv.multiply(n.mesh.matrixWorld)), sz = bx.getSize(new THREE.Vector3());
+      var vol = sz.x * sz.y * sz.z; if (!(vol > 0)) return;
+      var I = bx.clone().intersect(b.AN.boxNF.clone().expandByScalar(2)); if (I.isEmpty()) return;
+      var is = I.getSize(new THREE.Vector3()), f = is.x * is.y * is.z / vol;
+      if (f > bestF) { bestF = f; best = b; }
+    });
+    if (best && bestF >= 0.85) { (R.byBlock[best.t.idx] = R.byBlock[best.t.idx] || []).push(n); R.of[n.idx] = best.t; }
+  });
+  S.looseKey = key; S.looseMap = R;
+  return R;
+}
+var LOOSE_T = 'ბლოკის შიგნით, ბაზისში ბლოკის გარეთ დახაზული';
 function blockNumbers() {
   var dir = bestViewDir(), right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize();
   var L = [];
@@ -2097,7 +2140,8 @@ async function makeReport() {
     // 1. cover: one sheet with the piece in the room and without walls
     var solid = S.parts.filter(function (n) { return !n.room && n.type !== 3001 && keep(n); });
     var tops = S.nodes.filter(function (n) { return n.obj && !n.parent && descParts(n).some(keep); });
-    var loose = S.parts.filter(function (n) { return !n.parent && !n.room && keep(n); });
+    var LIB = looseInBlocks();
+    var loose = S.parts.filter(function (n) { return !n.parent && !n.room && keep(n) && !LIB.of[n.idx]; });
     // pages 1 and 2 show the drawing whole, with the removed materials (walls, floor…) in place; nothing after them does
     var hasRoom = S.parts.some(function (n) { return n.room; });
     var P, im, g;
@@ -2107,7 +2151,7 @@ async function makeReport() {
     var isLib = isLibNode;
     // blocks with their numbers (same numbering as in the app's block list)
     var BN0 = blockNumbers();
-    var units = tops.map(function (t) { return { title: blockName(t), node: t, num: BN0.map[t.idx] || 0, list: descParts(t).filter(keep) }; });
+    var units = tops.map(function (t) { var ad = LIB.byBlock[t.idx] || []; return { title: blockName(t), node: t, num: BN0.map[t.idx] || 0, list: descParts(t).filter(keep).concat(ad), adopted: ad }; });
     if (loose.length) units.push({ title: 'ცალკე დეტალები', node: null, num: 0, list: loose });
     units = units.filter(function (x) { return x.list.length; });
     units.forEach(function (U) { U.title = U.num ? 'ბლოკი ' + U.num + ' · ' + U.title : U.title; });
@@ -2254,6 +2298,7 @@ async function makeReport() {
           if (isLib(sb)) { var zz = sb.size ? [Math.round(sb.size.x), Math.round(sb.size.y), Math.round(sb.size.z)] : []; rows.push([String(k++), blockName(sb), 'მზა ნაწარმი / ფურნიტურა', '1', fmt(zz[0]), fmt(zz[1]), fmt(zz[2]), '', '—']); return; }
           addRows(descParts(sb));
         });
+        if (U.adopted && U.adopted.length) { rows.push({ section: LOOSE_T }); addRows(U.adopted); }
       } else addRows(U.list);
       // doors Bazis keeps outside the block, but standing in front of it, are listed with it
       if (AN.extFronts.length) addRows(AN.extFronts.map(function (f) { return f.n; }));
@@ -2325,7 +2370,7 @@ async function makeReport() {
       M2.list.forEach(function (n) {
         var key = dimText(n.dims) + '|' + cutText(n) + '|' + shapeKey(n);
         if (!grp[key]) { grp[key] = { n: n, q: 0, names: {}, blocks: {} }; order.push(key); }
-        var r = grp[key]; r.q++; r.names[niceName(n)] = 1; var b = blockOf(n); r.blocks[b ? (BN0.map[b.idx] ? BN0.map[b.idx] + ' · ' : '') + blockName(b) : '—'] = 1;
+        var r = grp[key]; r.q++; r.names[niceName(n)] = 1; var b = blockOf(n) || LIB.of[n.idx]; r.blocks[b ? (BN0.map[b.idx] ? BN0.map[b.idx] + ' · ' : '') + blockName(b) : '—'] = 1;
       });
       order.sort(function (a, b) { var A = grp[a].n.dims, B = grp[b].n.dims; return B[0] * B[1] - A[0] * A[1]; });
       drows.push({ section: m + ' — ' + M2.qty + ' დეტალი' + (M2.area ? ' · ' + M2.area.toFixed(2) + ' მ²' : '') + (M2.len ? ' · ' + M2.len.toFixed(2) + ' მ' : '') });
